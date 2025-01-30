@@ -1,0 +1,23 @@
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "explicit"
+  },
+  // 以下是推荐的补充设置
+  "editor.tabSize": 2, // 设置缩进为2个空格
+  "typescript.updateImportsOnFileMove.enabled": "always", // 移动文件时自动更新导入
+  "editor.bracketPairColorization.enabled": true, // 括号对彩色显示
+  // "editor.guides.bracketPairs": true, // 显示括号对连接线
+  "editor.wordWrap": "on", // 自动换行
+  "files.trimTrailingWhitespace": true, // 自动删除行尾空格
+  "files.insertFinalNewline": true, // 文件末尾插入新行
+  "typescript.suggest.autoImports": true, // 自动导入建议
+  "javascript.suggest.autoImports": true, // JS的自动导入建议
+  "editor.suggestSelection": "first", // 自动完成时选择第一个
+  "typescript.preferences.importModuleSpecifier": "relative" // 使用相对路径导入
+}
