@@ -64,6 +64,17 @@ function logStatistics() {
   }
 }
 
+const jitoTipAccounts = [
+  "96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5",
+  "HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe",
+  "Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY",
+  "ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt6iGPaS49",
+  "DfXygSm4jCyNCybVYYK6DwvWqjKee8pbDmJGcLWNDXjh",
+  "ADuUkR4vqLUMWXxW9gh6D6L8pMSawimctcNZ5pGwDcEt",
+  "DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL",
+  "3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT",
+];
+
 async function run() {
   const start = Date.now();
 
@@ -143,7 +154,7 @@ async function run() {
     // the real profit and tip should be calculated in your program
     const tipInstruction = SystemProgram.transfer({
       fromPubkey: payer.publicKey,
-      toPubkey: new PublicKey("Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY"), // a random account from jito tip accounts
+      toPubkey: new PublicKey(jitoTipAccounts[Math.floor(Math.random() * 8)]), // a random account from jito tip accounts
       lamports: jitoTip,
     });
     ixs.push(tipInstruction);
