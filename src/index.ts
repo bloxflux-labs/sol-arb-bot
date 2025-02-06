@@ -47,6 +47,23 @@ function instructionFormat(instruction) {
   };
 }
 
+// 新增统计变量
+let jitoRequestCount = 0;
+let error429Count = 0;
+let lastLogTime = Date.now();
+
+// 每10秒输出统计信息
+function logStatistics() {
+  const now = Date.now();
+  if (now - lastLogTime >= 10000) {
+    // 10秒
+    logger.warn(`统计信息 - 每10秒Jito请求量: ${jitoRequestCount}, 429错误次数: ${error429Count}`);
+    jitoRequestCount = 0;
+    error429Count = 0;
+    lastLogTime = now;
+  }
+}
+
 async function run() {
   const start = Date.now();
 
@@ -54,7 +71,7 @@ async function run() {
   const quote0Params = {
     inputMint: wSolMint,
     outputMint: usdcMint,
-    amount: 100000000, // 0.1 WSOL
+    amount: 1_000_000_000, // 1 WSOL
     onlyDirectRoutes: false,
     slippageBps: 0,
     maxAccounts: 20,
@@ -75,10 +92,10 @@ async function run() {
   // profit but not real
   const diffLamports = quote1Resp.data.outAmount - quote0Params.amount;
   // console.log("diffLamports:", diffLamports);
-  const jitoTip = Math.floor(diffLamports * 0.91);
+  const jitoTip = Math.floor(diffLamports * 0.95);
 
   // threhold
-  const thre = 30000;
+  const thre = 10000;
   if (diffLamports > thre) {
     logger.info(`diffLamports: ${diffLamports}`);
     // merge quote0 and quote1 response
@@ -169,6 +186,7 @@ async function run() {
         "Content-Type": "application/json",
       },
     });
+    jitoRequestCount++; // 成功请求计数
     const bundle_id = bundle_resp.data.result;
     logger.info(`sent to jito, bundle id: ${bundle_id}`);
     // console.log(JSON.stringify(bundle_resp.data));
@@ -188,6 +206,7 @@ async function main() {
       await run();
     } catch (error) {
       if (error.isAxiosError && error.response?.status === 429) {
+        error429Count++; // 429错误计数
         logger.error("429: 请求过于频繁");
         // await wait(1000); // 等待1秒
       } else {
@@ -195,8 +214,11 @@ async function main() {
       }
     }
 
+    // 输出统计信息
+    logStatistics();
+
     // wait 20ms
-    await wait(20);
+    // await wait(20);
   }
 }
 
