@@ -12,16 +12,18 @@ import axios from "axios";
 import bs58 from "bs58";
 import { Buffer } from "buffer";
 import "dotenv/config";
+import { logger } from "./logger";
 
 // 加载环境变量
 // dotenv.config();
 const rpcUrl = process.env.RPC_URL || "";
-const grpcUrl = process.env.GRPC_URL || "";
+// const grpcUrl = process.env.GRPC_URL || "";
 const jupiterUrl = process.env.JUPITER_URL || "";
+const jitoUrl = process.env.JITO_URL || "";
 
 // wallet
 const payer = getKeypairFromEnvironment("PRIVATE_KEY");
-console.log("payer:", payer.publicKey.toBase58());
+logger.info(`payer: ${payer.publicKey.toBase58()}`);
 
 const connection = new Connection(rpcUrl, "processed");
 const quoteUrl = `${jupiterUrl}/quote`;
@@ -52,7 +54,7 @@ async function run() {
   const quote0Params = {
     inputMint: wSolMint,
     outputMint: usdcMint,
-    amount: 10000000, // 0.01 WSOL
+    amount: 100000000, // 0.1 WSOL
     onlyDirectRoutes: false,
     slippageBps: 0,
     maxAccounts: 20,
@@ -72,12 +74,13 @@ async function run() {
 
   // profit but not real
   const diffLamports = quote1Resp.data.outAmount - quote0Params.amount;
-  console.log("diffLamports:", diffLamports);
+  // console.log("diffLamports:", diffLamports);
   const jitoTip = Math.floor(diffLamports * 0.91);
 
   // threhold
-  const thre = 3000;
+  const thre = 30000;
   if (diffLamports > thre) {
+    logger.info(`diffLamports: ${diffLamports}`);
     // merge quote0 and quote1 response
     let mergedQuoteResp = quote0Resp.data;
     mergedQuoteResp.outputMint = quote1Resp.data.outputMint;
@@ -161,34 +164,39 @@ async function run() {
       params: [[base58Transaction]],
     };
 
-    const bundle_resp = await axios.post(
-      `https://frankfurt.mainnet.block-engine.jito.wtf/api/v1/bundles`,
-      bundle,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    const bundle_resp = await axios.post(`${jitoUrl}/api/v1/bundles`, bundle, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
     const bundle_id = bundle_resp.data.result;
-    // console.log(`sent to frankfurt, bundle id: ${bundle_id}`);
-    console.log(JSON.stringify(bundle_resp.data));
+    logger.info(`sent to jito, bundle id: ${bundle_id}`);
+    // console.log(JSON.stringify(bundle_resp.data));
 
     // cal time cost
     const end = Date.now();
     const duration = end - start;
 
-    console.log(`${wSolMint} - ${usdcMint}`);
-    console.log(`slot: ${mergedQuoteResp.contextSlot}, total duration: ${duration}ms`);
+    // console.log(`${wSolMint} - ${usdcMint}`);
+    logger.info(`slot: ${mergedQuoteResp.contextSlot}, total duration: ${duration}ms`);
   }
 }
 
 async function main() {
   while (1) {
-    await run();
+    try {
+      await run();
+    } catch (error) {
+      if (error.isAxiosError && error.response?.status === 429) {
+        logger.error("429: 请求过于频繁");
+        // await wait(1000); // 等待1秒
+      } else {
+        logger.error(`发生错误: ${error.message}`);
+      }
+    }
 
-    // wait 200ms
-    await wait(200);
+    // wait 20ms
+    await wait(20);
   }
 }
 
