@@ -75,8 +75,32 @@ const jitoTipAccounts = [
   "3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT",
 ];
 
+const ips = [
+  "46.21.146.162",
+  "46.21.146.163",
+  "46.21.146.164",
+  "46.21.146.165",
+  "46.21.146.166",
+  "149.255.38.66",
+  "149.255.38.67",
+  "149.255.38.68",
+  "149.255.38.69",
+  "149.255.38.70",
+  "149.255.38.71",
+  "149.255.38.72",
+  "149.255.38.73",
+  "149.255.38.74",
+  "149.255.38.75",
+  "149.255.38.76",
+  "149.255.38.77",
+  "149.255.38.78",
+];
+
 async function run() {
   const start = Date.now();
+
+  // 随机选择一个IP地址
+  const selectedIp = ips[Math.floor(Math.random() * ips.length)];
 
   // quote0: WSOL -> USDC
   const quote0Params = {
@@ -196,11 +220,11 @@ async function run() {
       headers: {
         "Content-Type": "application/json",
       },
-    });
+      localAddress: selectedIp, // 指定源IP地址
+    } as any);
     jitoRequestCount++; // 成功请求计数
     const bundle_id = bundle_resp.data.result;
-    logger.info(`sent to jito, bundle id: ${bundle_id}`);
-    // console.log(JSON.stringify(bundle_resp.data));
+    logger.info(`sent to jito, bundle id: ${bundle_id}, using IP: ${selectedIp}`);
 
     // cal time cost
     const end = Date.now();
