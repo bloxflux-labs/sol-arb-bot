@@ -7,7 +7,7 @@ app.use(express.json());
 
 app.post("/api/v1/bundles", (req: Request, res: Response) => {
   // 获取客户端的源 IP 地址
-  const clientIp = req.ip || req.connection.remoteAddress;
+  const clientIp = req.ip || req.socket.remoteAddress;
   console.log(`Received request from IP: ${clientIp}`);
   res.status(200).send(`Request received from IP: ${clientIp}`);
 });
