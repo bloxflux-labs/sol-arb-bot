@@ -225,6 +225,11 @@ async function run() {
       // localAddress: selectedIp, // 指定源IP地址
     } as any);
     jitoRequestCount++; // 成功请求计数
+
+    // 获取源 IP 地址
+    const clientIp = bundle_resp.request.socket.remoteAddress;
+    logger.info(`Request received from IP: ${clientIp}`);
+
     const bundle_id = bundle_resp.data.result;
     logger.info(`sent to jito, bundle id: ${bundle_id}`);
 
