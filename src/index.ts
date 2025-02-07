@@ -112,12 +112,6 @@ const getPublicIp = async () => {
 async function run() {
   const start = Date.now();
 
-  // 随机选择一个IP地址
-  const selectedIp = ips[Math.floor(Math.random() * ips.length)];
-  const agent = new https.Agent({
-    localAddress: selectedIp, // 指定出口 IP
-  });
-
   // quote0: WSOL -> USDC
   const quote0Params = {
     inputMint: wSolMint,
@@ -226,8 +220,14 @@ async function run() {
     const base58Transaction = bs58.encode(serializedTransaction);
 
     // 在发送请求前获取出口 IP 地址
-    const publicIp = await getPublicIp();
-    logger.info(`当前出口 IP 地址: ${publicIp}`);
+    // const publicIp = await getPublicIp();
+    // logger.info(`当前出口 IP 地址: ${publicIp}`);
+
+    // 随机选择一个IP地址
+    const selectedIp = ips[Math.floor(Math.random() * ips.length)];
+    const agent = new https.Agent({
+      localAddress: selectedIp, // 指定出口 IP
+    });
 
     const bundle = {
       jsonrpc: "2.0",
