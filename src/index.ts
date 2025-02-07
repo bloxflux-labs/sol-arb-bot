@@ -75,7 +75,7 @@ const jitoTipAccounts = [
   "3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT",
 ];
 
-const ips = [
+const ipsAms = [
   "46.21.146.162",
   "46.21.146.163",
   "46.21.146.164",
@@ -96,11 +96,13 @@ const ips = [
   "149.255.38.78",
 ];
 
+const ips = ["66.206.3.42", "66.206.3.43", "66.206.3.44", "66.206.3.45", "66.206.3.46"];
+
 async function run() {
   const start = Date.now();
 
   // 随机选择一个IP地址
-  // const selectedIp = ips[Math.floor(Math.random() * ips.length)];
+  const selectedIp = ips[Math.floor(Math.random() * ips.length)];
 
   // quote0: WSOL -> USDC
   const quote0Params = {
@@ -216,7 +218,7 @@ async function run() {
       params: [[base58Transaction]],
     };
 
-    const bundle_resp = await axios.post(`${jitoUrl}/api/v1/bundles`, bundle, {
+    const bundle_resp = await axios.post(`http://${selectedIp}:8081/api/v1/bundles`, bundle, {
       headers: {
         "Content-Type": "application/json",
       },
@@ -224,7 +226,7 @@ async function run() {
     } as any);
     jitoRequestCount++; // 成功请求计数
     const bundle_id = bundle_resp.data.result;
-    logger.info(`sent to jito, bundle id: ${bundle_id}`);
+    logger.info(`sent to jito, bundle id: ${bundle_id}, ip: ${selectedIp}`);
 
     // cal time cost
     const end = Date.now();
