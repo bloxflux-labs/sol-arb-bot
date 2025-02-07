@@ -12,6 +12,7 @@ import axios from "axios";
 import bs58 from "bs58";
 import { Buffer } from "buffer";
 import "dotenv/config";
+import https from "https";
 import { logger } from "./logger";
 
 // 加载环境变量
@@ -112,7 +113,10 @@ async function run() {
   const start = Date.now();
 
   // 随机选择一个IP地址
-  // const selectedIp = ips[Math.floor(Math.random() * ips.length)];
+  const selectedIp = ips[Math.floor(Math.random() * ips.length)];
+  const agent = new https.Agent({
+    localAddress: selectedIp, // 指定出口 IP
+  });
 
   // quote0: WSOL -> USDC
   const quote0Params = {
@@ -236,12 +240,13 @@ async function run() {
       headers: {
         "Content-Type": "application/json",
       },
+      httpsAgent: agent, // 使用自定义 agent
       // localAddress: selectedIp, // 指定源IP地址
     } as any);
     jitoRequestCount++; // 成功请求计数
 
     const bundle_id = bundle_resp.data.result;
-    logger.info(`sent to jito, bundle id: ${bundle_id}`);
+    logger.info(`sent to jito, bundle id: ${bundle_id}, ip: ${selectedIp}`);
 
     // cal time cost
     const end = Date.now();
