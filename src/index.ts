@@ -98,6 +98,16 @@ const ipsAms = [
 
 const ips = ["66.206.3.42", "66.206.3.43", "66.206.3.44", "66.206.3.45", "66.206.3.46"];
 
+const getPublicIp = async () => {
+  try {
+    const response = await axios.get("https://ifconfig.me/ip");
+    return response.data.trim(); // 返回出口 IP 地址
+  } catch (error) {
+    logger.error(`获取出口 IP 地址失败: ${error.message}`);
+    return null;
+  }
+};
+
 async function run() {
   const start = Date.now();
 
@@ -211,6 +221,10 @@ async function run() {
     const serializedTransaction = transaction.serialize();
     const base58Transaction = bs58.encode(serializedTransaction);
 
+    // 在发送请求前获取出口 IP 地址
+    const publicIp = await getPublicIp();
+    logger.info(`当前出口 IP 地址: ${publicIp}`);
+
     const bundle = {
       jsonrpc: "2.0",
       id: 1,
@@ -225,10 +239,6 @@ async function run() {
       // localAddress: selectedIp, // 指定源IP地址
     } as any);
     jitoRequestCount++; // 成功请求计数
-
-    // 获取源 IP 地址
-    const clientIp = bundle_resp.request.socket.remoteAddress;
-    logger.info(`Request received from IP: ${clientIp}`);
 
     const bundle_id = bundle_resp.data.result;
     logger.info(`sent to jito, bundle id: ${bundle_id}`);
@@ -247,14 +257,12 @@ async function main() {
     try {
       await run();
     } catch (error) {
-      // 获取源 IP 地址
-      const clientIp = error.request?.socket?.remoteAddress || "unknown";
       if (error.isAxiosError && error.response?.status === 429) {
         error429Count++; // 429错误计数
-        logger.error(`429: 请求过于频繁，源 IP: ${clientIp}`);
+        logger.error(`429: 请求过于频繁`);
         // await wait(1000); // 等待1秒
       } else {
-        logger.error(`发生错误: ${error.message}，源 IP: ${clientIp}`);
+        logger.error(`发生错误: ${error.message}`);
       }
     }
 
