@@ -100,7 +100,7 @@ async function run() {
   const start = Date.now();
 
   // 随机选择一个IP地址
-  const selectedIp = ips[Math.floor(Math.random() * ips.length)];
+  // const selectedIp = ips[Math.floor(Math.random() * ips.length)];
 
   // quote0: WSOL -> USDC
   const quote0Params = {
@@ -220,11 +220,11 @@ async function run() {
       headers: {
         "Content-Type": "application/json",
       },
-      localAddress: selectedIp, // 指定源IP地址
+      // localAddress: selectedIp, // 指定源IP地址
     } as any);
     jitoRequestCount++; // 成功请求计数
     const bundle_id = bundle_resp.data.result;
-    logger.info(`sent to jito, bundle id: ${bundle_id}, using IP: ${selectedIp}`);
+    logger.info(`sent to jito, bundle id: ${bundle_id}`);
 
     // cal time cost
     const end = Date.now();
