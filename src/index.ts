@@ -247,12 +247,14 @@ async function main() {
     try {
       await run();
     } catch (error) {
+      // 获取源 IP 地址
+      const clientIp = error.request?.socket?.remoteAddress || "unknown";
       if (error.isAxiosError && error.response?.status === 429) {
         error429Count++; // 429错误计数
-        logger.error("429: 请求过于频繁");
+        logger.error(`429: 请求过于频繁，源 IP: ${clientIp}`);
         // await wait(1000); // 等待1秒
       } else {
-        logger.error(`发生错误: ${error.message}`);
+        logger.error(`发生错误: ${error.message}，源 IP: ${clientIp}`);
       }
     }
 
