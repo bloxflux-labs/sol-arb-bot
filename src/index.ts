@@ -12,7 +12,6 @@ import axios from "axios";
 import bs58 from "bs58";
 import { Buffer } from "buffer";
 import "dotenv/config";
-import https from "https";
 import { logger } from "./logger";
 
 // 加载环境变量
@@ -76,28 +75,7 @@ const jitoTipAccounts = [
   "3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT",
 ];
 
-const ipsAms = [
-  "46.21.146.162",
-  "46.21.146.163",
-  "46.21.146.164",
-  "46.21.146.165",
-  "46.21.146.166",
-  "149.255.38.66",
-  "149.255.38.67",
-  "149.255.38.68",
-  "149.255.38.69",
-  "149.255.38.70",
-  "149.255.38.71",
-  "149.255.38.72",
-  "149.255.38.73",
-  "149.255.38.74",
-  "149.255.38.75",
-  "149.255.38.76",
-  "149.255.38.77",
-  "149.255.38.78",
-];
-
-const ips = ["66.206.3.42", "66.206.3.43", "66.206.3.44", "66.206.3.45", "66.206.3.46"];
+// const ips = [];
 
 const getPublicIp = async () => {
   try {
@@ -224,10 +202,10 @@ async function run() {
     // logger.info(`当前出口 IP 地址: ${publicIp}`);
 
     // 随机选择一个IP地址
-    const selectedIp = ips[Math.floor(Math.random() * ips.length)];
-    const agent = new https.Agent({
-      localAddress: selectedIp, // 指定出口 IP
-    });
+    // const selectedIp = ips[Math.floor(Math.random() * ips.length)];
+    // const agent = new https.Agent({
+    //   localAddress: selectedIp, // 指定出口 IP
+    // });
 
     const bundle = {
       jsonrpc: "2.0",
@@ -240,13 +218,13 @@ async function run() {
       headers: {
         "Content-Type": "application/json",
       },
-      httpsAgent: agent, // 使用自定义 agent
+      // httpsAgent: agent, // 使用自定义 agent
       // localAddress: selectedIp, // 指定源IP地址
     } as any);
     jitoRequestCount++; // 成功请求计数
 
     const bundle_id = bundle_resp.data.result;
-    logger.info(`sent to jito, bundle id: ${bundle_id}, ip: ${selectedIp}`);
+    logger.info(`sent to jito, bundle id: ${bundle_id}`);
 
     // cal time cost
     const end = Date.now();
