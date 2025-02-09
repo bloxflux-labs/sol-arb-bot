@@ -20,9 +20,13 @@ let error429Count = 0; // 429 错误计数
 // 每 10 秒输出统计信息
 function logStatistics() {
   logger.info(
-    `统计 - 每 10 秒发送请求总量: ${totalRequestCount}, 成功请求量: ${jitoRequestCount}, 平均每秒: ${(
-      jitoRequestCount / 10
-    ).toFixed(1)}, 429 错误次数: ${error429Count}`
+    `统计 - 过去 10 秒：发送请求总量: ${totalRequestCount
+      .toString()
+      .padStart(3, " ")}, 成功响应量: ${jitoRequestCount
+      .toString()
+      .padStart(3, " ")}, 平均每秒成功: ${(jitoRequestCount / 10)
+      .toFixed(1)
+      .padStart(4, " ")}, 429 错误次数: ${error429Count.toString().padStart(3, " ")}`
   );
   // 重置统计变量
   totalRequestCount = 0;
@@ -82,6 +86,9 @@ async function main() {
       }, i * interval); // 均匀分布请求
     }
   }
+
+  // 立即执行一次请求发送
+  sendRequests();
 
   // 每秒执行一次请求发送
   setInterval(sendRequests, 1000);
