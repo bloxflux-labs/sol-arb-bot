@@ -1,10 +1,11 @@
 import axios from "axios";
 import "dotenv/config";
+import pLimit from "p-limit";
 import { logger } from "./logger";
 
 const jitoUrl = process.env.JITO_URL || "https://amsterdam.mainnet.block-engine.jito.wtf";
-// 每秒发送请求量
-const concurrency = parseInt(process.env.BENCH_CONCURRENCY || "10", 10);
+const concurrency = parseInt(process.env.CONCURRENCY || "10", 10); // 并发量
+const limit = pLimit(concurrency); // 创建并发限制器
 logger.info(`jito url: ${jitoUrl}`);
 logger.info(`send request concurrency: ${concurrency}/s`);
 
@@ -68,21 +69,20 @@ async function run() {
 }
 
 async function main() {
-  while (true) {
-    const promises = Array(concurrency)
-      .fill(null)
-      .map(() =>
+  // 每秒发送 concurrency 个请求
+  setInterval(() => {
+    for (let i = 0; i < concurrency; i++) {
+      limit(() =>
         run().catch((error) => {
           logger.error(`发生错误: ${error.message}`);
         })
       );
-
+    }
     totalRequestCount += concurrency; // 统计总请求量
-    await Promise.all(promises);
+  }, 1000); // 每秒执行一次
 
-    // 输出统计信息
-    logStatistics();
-  }
+  // 每10秒输出统计信息
+  setInterval(logStatistics, 10000);
 }
 
 main();
