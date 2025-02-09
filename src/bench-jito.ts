@@ -69,17 +69,23 @@ async function run() {
 }
 
 async function main() {
-  // 每秒发送 concurrency 个请求
-  setInterval(() => {
+  const interval = 1000 / concurrency; // 每个请求的间隔时间
+
+  function sendRequests() {
     for (let i = 0; i < concurrency; i++) {
-      limit(() =>
-        run().catch((error) => {
-          logger.error(`发生错误: ${error.message}`);
-        })
-      );
+      setTimeout(() => {
+        limit(() =>
+          run().catch((error) => {
+            logger.error(`发生错误: ${error.message}`);
+          })
+        );
+        totalRequestCount++; // 统计总请求量
+      }, i * interval); // 均匀分布请求
     }
-    totalRequestCount += concurrency; // 统计总请求量
-  }, 1000); // 每秒执行一次
+  }
+
+  // 每秒执行一次
+  setInterval(sendRequests, 1000);
 
   // 每10秒输出统计信息
   setInterval(logStatistics, 10000);
