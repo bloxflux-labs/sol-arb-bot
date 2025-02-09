@@ -3,13 +3,14 @@ import "dotenv/config";
 import { logger } from "./logger";
 
 const jitoUrl = process.env.JITO_URL || "https://amsterdam.mainnet.block-engine.jito.wtf";
+// 每秒发送请求量
 const concurrency = parseInt(process.env.BENCH_CONCURRENCY || "10", 10);
-logger.info(`bench jito url: ${jitoUrl}`);
-logger.info(`bench concurrency: ${concurrency}/s`);
+logger.info(`jito url: ${jitoUrl}`);
+logger.info(`send request concurrency: ${concurrency}/s`);
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+// const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// 新增统计变量
+// 统计变量
 let jitoRequestCount = 0;
 let error429Count = 0;
 let totalRequestCount = 0;
@@ -19,11 +20,10 @@ let lastLogTime = Date.now();
 function logStatistics() {
   const now = Date.now();
   if (now - lastLogTime >= 10000) {
-    // 10秒
     logger.warn(
-      `统计 - 每10秒发送请求总量: ${totalRequestCount}, 成功请求量: ${jitoRequestCount}, 平均每秒: ${
+      `统计 - 每10秒发送请求总量: ${totalRequestCount}, 成功请求量: ${jitoRequestCount}, 平均每秒: ${(
         jitoRequestCount / 10
-      }, 429错误次数: ${error429Count}`
+      ).toFixed(1)}, 429错误次数: ${error429Count}`
     );
     totalRequestCount = 0;
     jitoRequestCount = 0;
@@ -52,13 +52,18 @@ async function run() {
     if (bundle_resp.status === 200) {
       jitoRequestCount++; // 成功请求计数
       const duration = Date.now() - start;
-      logger.info(`200: 发送成功, 耗时: ${duration}ms`);
+      // logger.info(`200: 发送成功, 耗时: ${duration}ms`);
     } else {
       logger.error(`发送失败`);
     }
   } catch (error) {
     const duration = Date.now() - start;
-    logger.error(`请求失败, 耗时: ${duration}ms, 错误: ${error.message}`);
+    if (error.isAxiosError && error.response?.status === 429) {
+      error429Count++; // 429错误计数
+      // logger.error(`429: 请求过于频繁, 耗时: ${duration}ms`);
+    } else {
+      logger.error(`请求失败, 耗时: ${duration}ms, 错误: ${error.message}`);
+    }
   }
 }
 
@@ -68,12 +73,7 @@ async function main() {
       .fill(null)
       .map(() =>
         run().catch((error) => {
-          if (error.isAxiosError && error.response?.status === 429) {
-            error429Count++; // 429错误计数
-            // logger.error(`429: 请求过于频繁`);
-          } else {
-            logger.error(`发生错误: ${error.message}`);
-          }
+          logger.error(`发生错误: ${error.message}`);
         })
       );
 
