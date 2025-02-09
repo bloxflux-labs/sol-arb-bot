@@ -3,6 +3,9 @@ import "dotenv/config";
 import { logger } from "./logger";
 
 const jitoUrl = process.env.JITO_URL || "";
+const concurrency = parseInt(process.env.BENCH_CONCURRENCY || "10", 10);
+logger.info(`bench concurrency: ${concurrency}/s`);
+
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // 新增统计变量
@@ -15,7 +18,11 @@ function logStatistics() {
   const now = Date.now();
   if (now - lastLogTime >= 10000) {
     // 10秒
-    logger.warn(`统计 - 每10秒Jito成功请求量: ${jitoRequestCount}, 429错误次数: ${error429Count}`);
+    logger.warn(
+      `统计 - 每10秒Jito成功请求量: ${jitoRequestCount}, 平均每秒: ${
+        jitoRequestCount / 10
+      }, 429错误次数: ${error429Count}`
+    );
     jitoRequestCount = 0;
     error429Count = 0;
     lastLogTime = now;
@@ -57,23 +64,24 @@ async function run() {
 }
 
 async function main() {
-  while (1) {
-    try {
-      await run();
-    } catch (error) {
-      if (error.isAxiosError && error.response?.status === 429) {
-        error429Count++; // 429错误计数
-        logger.error(`429: 请求过于频繁`);
-      } else {
-        logger.error(`发生错误: ${error.message}`);
-      }
-    }
+  while (true) {
+    const promises = Array(concurrency)
+      .fill(null)
+      .map(() =>
+        run().catch((error) => {
+          if (error.isAxiosError && error.response?.status === 429) {
+            error429Count++; // 429错误计数
+            // logger.error(`429: 请求过于频繁`);
+          } else {
+            logger.error(`发生错误: ${error.message}`);
+          }
+        })
+      );
+
+    await Promise.all(promises);
 
     // 输出统计信息
     logStatistics();
-
-    // wait (ms)
-    // await wait(10);
   }
 }
 
