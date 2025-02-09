@@ -59,7 +59,7 @@ async function run() {
     } else {
       logger.error(`请求失败, 状态码: ${bundle_resp.status}`);
     }
-  } catch (error) {
+  } catch (error: any) {
     const duration = Date.now() - start;
     if (error.isAxiosError && error.response?.status === 429) {
       error429Count++; // 429 错误计数
