@@ -1,3 +1,4 @@
+import { Mutex } from "async-mutex";
 import axios from "axios";
 import "dotenv/config";
 import pLimit from "p-limit";
@@ -8,26 +9,41 @@ const jitoUrl = process.env.JITO_URL || "https://amsterdam.mainnet.block-engine.
 const concurrency = parseInt(process.env.JITO_CONCURRENCY || "10", 10); // 并发量，默认 10
 const limit = pLimit(concurrency); // 创建并发限制器
 
+// 创建互斥锁
+const statsMutex = new Mutex();
+
 // 初始化日志
 logger.info(`Jito URL: ${jitoUrl}`);
 logger.info(`请求并发量: ${concurrency}/s`);
 
+// const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 // 统计变量
-let totalRequestCount = 0; // 总请求计数
 let jitoRequestCount = 0; // 成功请求计数
 let error429Count = 0; // 429 错误计数
+let totalRequestCount = 0; // 总请求计数
+let lastLogTime = Date.now(); // 上次日志输出时间
 
 // 每 10 秒输出统计信息
-function logStatistics() {
-  logger.info(
-    `统计 - 每 10 秒发送请求总量: ${totalRequestCount}, 成功请求量: ${jitoRequestCount}, 平均每秒: ${(
-      jitoRequestCount / 10
-    ).toFixed(1)}, 429 错误次数: ${error429Count}`
-  );
-  // 重置统计变量
-  totalRequestCount = 0;
-  jitoRequestCount = 0;
-  error429Count = 0;
+async function logStatistics() {
+  const now = Date.now();
+  if (now - lastLogTime >= 10000) {
+    const release = await statsMutex.acquire(); // 获取锁
+    try {
+      logger.warn(
+        `统计 - 每 10 秒发送请求总量: ${totalRequestCount}, 成功请求量: ${jitoRequestCount}, 平均每秒: ${(
+          jitoRequestCount / 10
+        ).toFixed(1)}, 429 错误次数: ${error429Count}`
+      );
+      // 重置统计变量
+      totalRequestCount = 0;
+      jitoRequestCount = 0;
+      error429Count = 0;
+      lastLogTime = now;
+    } finally {
+      release(); // 释放锁
+    }
+  }
 }
 
 // 发送单个请求
@@ -49,7 +65,12 @@ async function run() {
     });
 
     if (bundle_resp.status === 200) {
-      jitoRequestCount++; // 成功请求计数
+      const release = await statsMutex.acquire(); // 获取锁
+      try {
+        jitoRequestCount++; // 成功请求计数
+      } finally {
+        release(); // 释放锁
+      }
       const duration = Date.now() - start;
       // logger.info(`200: 请求成功, 耗时: ${duration}ms`);
     } else {
@@ -58,7 +79,12 @@ async function run() {
   } catch (error) {
     const duration = Date.now() - start;
     if (error.isAxiosError && error.response?.status === 429) {
-      error429Count++; // 429 错误计数
+      const release = await statsMutex.acquire(); // 获取锁
+      try {
+        error429Count++; // 429 错误计数
+      } finally {
+        release(); // 释放锁
+      }
       // logger.error(`429: 请求过于频繁, 耗时: ${duration}ms`);
     } else {
       logger.error(`请求失败, 耗时: ${duration}ms, 错误: ${error.message}`);
@@ -78,7 +104,14 @@ async function main() {
             logger.error(`请求发生错误: ${error.message}`);
           })
         );
-        totalRequestCount++; // 统计总请求量
+        (async () => {
+          const release = await statsMutex.acquire(); // 获取锁
+          try {
+            totalRequestCount++; // 统计总请求量
+          } finally {
+            release(); // 释放锁
+          }
+        })();
       }, i * interval); // 均匀分布请求
     }
   }
