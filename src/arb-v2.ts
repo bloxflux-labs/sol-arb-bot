@@ -152,7 +152,7 @@ async function run() {
   const currentOperationId = operationCounter++;
   let lastStepTime = start;
 
-  lastStepTime = timedLog(`开始执行套利操作 #${currentOperationId}`, start, lastStepTime);
+  lastStepTime = timedLog(`---- 开始执行套利操作 #${currentOperationId} ----`, start, lastStepTime);
 
   // quote0: WSOL -> USDC
   // lastStepTime = timedLog("获取 WSOL -> USDC 报价", start, lastStepTime);
