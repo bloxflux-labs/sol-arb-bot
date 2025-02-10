@@ -155,7 +155,7 @@ async function run() {
   lastStepTime = timedLog(`开始执行套利操作 #${currentOperationId}`, start, lastStepTime);
 
   // quote0: WSOL -> USDC
-  lastStepTime = timedLog("获取 WSOL -> USDC 报价", start, lastStepTime);
+  // lastStepTime = timedLog("获取 WSOL -> USDC 报价", start, lastStepTime);
   const quote0Params = {
     inputMint: wSolMint,
     outputMint: usdcMint,
@@ -166,13 +166,13 @@ async function run() {
   };
   const quote0Resp = await axios.get(quoteUrl, { params: quote0Params });
   lastStepTime = timedLog(
-    `WSOL -> USDC 报价完成，输出金额: ${quote0Resp.data.outAmount}`,
+    `WSOL -> USDC 报价完成，价格: ${quote0Resp.data.outAmount}`,
     start,
     lastStepTime
   );
 
   // quote1: USDC -> WSOL
-  lastStepTime = timedLog("获取 USDC -> WSOL 报价", start, lastStepTime);
+  // lastStepTime = timedLog("获取 USDC -> WSOL 报价", start, lastStepTime);
   const quote1Params = {
     inputMint: usdcMint,
     outputMint: wSolMint,
@@ -291,7 +291,7 @@ async function run() {
 
     try {
       totalRequestCount++; // 总请求计数
-      lastStepTime = timedLog(`发送交易到Jito`, start, lastStepTime);
+      // lastStepTime = timedLog(`发送交易到Jito`, start, lastStepTime);
 
       const bundle_resp = await axios.post(`${jitoUrl}/api/v1/bundles`, bundle, {
         headers: {
@@ -303,7 +303,7 @@ async function run() {
         jitoRequestCount++; // 成功请求计数
         const bundle_id = bundle_resp.data.result;
         lastStepTime = timedLog(`交易成功发送到Jito，bundle id: ${bundle_id}`, start, lastStepTime);
-        lastStepTime = timedLog(`slot: ${mergedQuoteResp.contextSlot}`, start, lastStepTime);
+        // lastStepTime = timedLog(`slot: ${mergedQuoteResp.contextSlot}`, start, lastStepTime);
       } else {
         lastStepTime = timedLog(`请求失败，状态码: ${bundle_resp.status}`, start, lastStepTime);
       }
@@ -317,7 +317,7 @@ async function run() {
       }
     }
   }
-  lastStepTime = timedLog(`---- 套利操作 #${currentOperationId} 完成 ----`, start, lastStepTime);
+  // lastStepTime = timedLog(`---- 套利操作 #${currentOperationId} 完成 ----`, start, lastStepTime);
 }
 
 async function main() {
