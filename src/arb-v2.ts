@@ -105,7 +105,7 @@ let lastLogTime = Date.now();
 function logStatistics() {
   const now = Date.now();
   if (now - lastLogTime >= 10000) {
-    logger.info(
+    logger.warn(
       `统计 - 过去 10 秒：发送请求总量: ${totalRequestCount
         .toString()
         .padStart(3, " ")}, 成功响应量: ${jitoRequestCount
