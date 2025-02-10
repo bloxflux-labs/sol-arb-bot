@@ -133,10 +133,23 @@ const jitoTipAccounts = [
   "3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT",
 ];
 
+// 全局操作计数器
+let operationCounter = 0;
+
+// 带耗时的日志输出
+function timedLog(message: string, startTime: number) {
+  const elapsed = Date.now() - startTime;
+  logger.info(`[耗时 ${elapsed.toString().padStart(4, " ")}ms] ${message}`);
+}
+
 async function run() {
   const start = Date.now();
+  const currentOperationId = operationCounter++;
+
+  timedLog(`---- 开始执行套利操作 #${currentOperationId} ----`, start);
 
   // quote0: WSOL -> USDC
+  timedLog("获取 WSOL -> USDC 报价", start);
   const quote0Params = {
     inputMint: wSolMint,
     outputMint: usdcMint,
@@ -146,8 +159,10 @@ async function run() {
     maxAccounts: 20,
   };
   const quote0Resp = await axios.get(quoteUrl, { params: quote0Params });
+  timedLog(`WSOL -> USDC 报价完成，价格: ${quote0Resp.data.outAmount}`, start);
 
   // quote1: USDC -> WSOL
+  timedLog("获取 USDC -> WSOL 报价", start);
   const quote1Params = {
     inputMint: usdcMint,
     outputMint: wSolMint,
@@ -157,6 +172,7 @@ async function run() {
     maxAccounts: 20,
   };
   const quote1Resp = await axios.get(quoteUrl, { params: quote1Params });
+  timedLog(`USDC -> WSOL 报价完成，价格: ${quote1Resp.data.outAmount}`, start);
 
   // profit but not real
   const diffLamports = quote1Resp.data.outAmount - quote0Params.amount;
@@ -166,9 +182,9 @@ async function run() {
   // threhold
   const thre = 10000;
   if (diffLamports > thre) {
-    logger.info(`diffLamports: ${diffLamports}`);
-    const payer = getNextPayer(); // 每次运行获取一个新的payer
-    logger.info(`当前使用的payer: ${payer.publicKey.toBase58()}`);
+    timedLog(`检测到套利机会，差额: ${diffLamports}`, start);
+    const payer = getNextPayer();
+    timedLog(`当前使用的payer: ${payer.publicKey.toBase58()}`, start);
 
     // merge quote0 and quote1 response
     let mergedQuoteResp = quote0Resp.data;
@@ -190,6 +206,8 @@ async function run() {
     };
     const instructionsResp = await axios.post(swapInstructionUrl, swapData);
     const instructions = instructionsResp.data;
+
+    timedLog(`get instructions`, start);
 
     // bulid tx
     let ixs: TransactionInstruction[] = [];
@@ -228,6 +246,8 @@ async function run() {
       })
     );
 
+    timedLog(`get addressLookupTableAccounts`, start);
+
     // v0 tx
     const { blockhash } = await connection.getLatestBlockhash();
     const messageV0 = new TransactionMessage({
@@ -237,6 +257,8 @@ async function run() {
     }).compileToV0Message(addressLookupTableAccounts);
     const transaction = new VersionedTransaction(messageV0);
     transaction.sign([payer]);
+
+    timedLog(`sign transaction`, start);
 
     // simulate
     // const simulationResult = await connection.simulateTransaction(transaction);
@@ -255,6 +277,7 @@ async function run() {
 
     try {
       totalRequestCount++; // 总请求计数
+      timedLog(`发送交易到Jito`, start);
       const bundle_resp = await axios.post(`${jitoUrl}/api/v1/bundles`, bundle, {
         headers: {
           "Content-Type": "application/json",
@@ -264,12 +287,10 @@ async function run() {
       if (bundle_resp.status === 200) {
         jitoRequestCount++; // 成功请求计数
         const bundle_id = bundle_resp.data.result;
-        logger.info(`sent to jito, bundle id: ${bundle_id}`);
-        const duration = Date.now() - start;
-        // logger.info(`200: 请求成功, 耗时: ${duration}ms`);
-        logger.info(`slot: ${mergedQuoteResp.contextSlot}, total duration: ${duration}ms`);
+        timedLog(`交易成功发送到Jito，bundle id: ${bundle_id}`, start);
+        timedLog(`slot: ${mergedQuoteResp.contextSlot}`, start);
       } else {
-        logger.error(`请求失败, 状态码: ${bundle_resp.status}`);
+        timedLog(`请求失败，状态码: ${bundle_resp.status}`, start);
       }
     } catch (error: any) {
       const duration = Date.now() - start;
@@ -277,10 +298,11 @@ async function run() {
         error429Count++; // 429 错误计数
         // logger.error(`429: 请求过于频繁, 耗时: ${duration}ms`);
       } else {
-        logger.error(`请求失败, 耗时: ${duration}ms, 错误: ${error.message}`);
+        timedLog(`请求失败，错误: ${error.message}`, start);
       }
     }
   }
+  // timedLog(`---- 套利操作 #${currentOperationId} 完成 ----`, start);
 }
 
 async function main() {
