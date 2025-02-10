@@ -152,7 +152,7 @@ async function run() {
   const currentOperationId = operationCounter++;
   let lastStepTime = start;
 
-  lastStepTime = timedLog(`---- 开始执行套利操作 #${currentOperationId} ----`, start, lastStepTime);
+  // lastStepTime = timedLog(`---- 开始执行套利操作 #${currentOperationId} ----`, start, lastStepTime);
 
   // quote0: WSOL -> USDC
   // lastStepTime = timedLog("获取 WSOL -> USDC 报价", start, lastStepTime);
@@ -165,11 +165,11 @@ async function run() {
     maxAccounts: 20,
   };
   const quote0Resp = await axios.get(quoteUrl, { params: quote0Params });
-  lastStepTime = timedLog(
-    `WSOL -> USDC 报价完成，价格: ${quote0Resp.data.outAmount}`,
-    start,
-    lastStepTime
-  );
+  // lastStepTime = timedLog(
+  //   `WSOL -> USDC 报价完成，价格: ${quote0Resp.data.outAmount}`,
+  //   start,
+  //   lastStepTime
+  // );
 
   // quote1: USDC -> WSOL
   // lastStepTime = timedLog("获取 USDC -> WSOL 报价", start, lastStepTime);
@@ -182,11 +182,11 @@ async function run() {
     maxAccounts: 20,
   };
   const quote1Resp = await axios.get(quoteUrl, { params: quote1Params });
-  lastStepTime = timedLog(
-    `USDC -> WSOL 报价完成，价格: ${quote1Resp.data.outAmount}`,
-    start,
-    lastStepTime
-  );
+  // lastStepTime = timedLog(
+  //   `USDC -> WSOL 报价完成，价格: ${quote1Resp.data.outAmount}`,
+  //   start,
+  //   lastStepTime
+  // );
 
   // profit but not real
   const diffLamports = quote1Resp.data.outAmount - quote0Params.amount;
@@ -302,7 +302,7 @@ async function run() {
       if (bundle_resp.status === 200) {
         jitoRequestCount++; // 成功请求计数
         const bundle_id = bundle_resp.data.result;
-        lastStepTime = timedLog(`交易成功发送到Jito，bundle id: ${bundle_id}`, start, lastStepTime);
+        lastStepTime = timedLog(`交易成功发送到Jito, bundle id: ${bundle_id}`, start, lastStepTime);
         // lastStepTime = timedLog(`slot: ${mergedQuoteResp.contextSlot}`, start, lastStepTime);
       } else {
         lastStepTime = timedLog(`请求失败，状态码: ${bundle_resp.status}`, start, lastStepTime);
