@@ -12,6 +12,9 @@ const connection = new Connection(RPC_URL);
 // USDC 的 Mint 地址
 const USDC_MINT = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 
+// WSOL 的 Mint 地址
+const WSOL_MINT = new PublicKey("So11111111111111111111111111111111111111112");
+
 // 读取钱包地址文件
 const WALLET_FILE = path.join(__dirname, "../../wallet.txt");
 
@@ -25,6 +28,18 @@ async function getSolBalance(publicKey: PublicKey): Promise<number> {
 async function getUsdcBalance(publicKey: PublicKey): Promise<number> {
   const accounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
     mint: USDC_MINT,
+  });
+
+  if (accounts.value.length > 0) {
+    return accounts.value[0].account.data.parsed.info.tokenAmount.uiAmount;
+  }
+  return 0;
+}
+
+// 查询 WSOL 余额
+async function getWsolBalance(publicKey: PublicKey): Promise<number> {
+  const accounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
+    mint: WSOL_MINT,
   });
 
   if (accounts.value.length > 0) {
@@ -54,10 +69,12 @@ async function main() {
       const publicKey = new PublicKey(address);
       const solBalance = await getSolBalance(publicKey);
       const usdcBalance = await getUsdcBalance(publicKey);
+      const wsolBalance = await getWsolBalance(publicKey);
 
       console.log(`Wallet: ${address}`);
       console.log(`SOL Balance: ${solBalance}`);
-      console.log(`USDC Balance: ${usdcBalance}\n`);
+      console.log(`USDC Balance: ${usdcBalance}`);
+      console.log(`WSOL Balance: ${wsolBalance}\n`);
     } catch (error) {
       console.error(`Error checking balance for ${address}:`, error);
     }
