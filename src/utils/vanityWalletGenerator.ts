@@ -1,5 +1,6 @@
 import { Keypair } from "@solana/web3.js";
 import bs58 from "bs58";
+import { encrypt } from "./cryptoUtils";
 
 // 生成符合要求的钱包地址
 function generateVanityWallet(prefix: string, suffix: string, count: number): Keypair[] {
@@ -47,6 +48,8 @@ async function main() {
     console.log(`\nWallet ${index + 1}:`);
     console.log(`Public Key: ${wallet.publicKey.toBase58()}`);
     console.log(`Private Key: ${bs58.encode(wallet.secretKey)}`);
+    const encryptedPrivateKey = encrypt(bs58.encode(wallet.secretKey));
+    console.log(`Encrypted Private Key: ${encryptedPrivateKey}`);
   });
 }
 
