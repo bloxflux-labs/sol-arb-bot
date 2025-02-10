@@ -15,7 +15,12 @@ function generateVanityWallet(prefix: string, suffix: string, count: number): Ke
     // 检查是否匹配前缀和后缀
     if (publicKey.startsWith(prefix) && publicKey.endsWith(suffix)) {
       wallets.push(keypair);
-      console.log(`Found matching wallet: ${publicKey}`);
+      // 立即打印生成的钱包信息
+      console.log(`\nFound matching wallet ${wallets.length}:`);
+      console.log(`Public Key: ${publicKey}`);
+      console.log(`Private Key: ${bs58.encode(keypair.secretKey)}`);
+      const encryptedPrivateKey = encrypt(bs58.encode(keypair.secretKey));
+      console.log(`Encrypted Private Key: ${encryptedPrivateKey}`);
     }
 
     // 每10000次尝试打印进度
