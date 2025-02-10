@@ -33,7 +33,17 @@ for (let i = 1; i <= privateKeyCount; i++) {
 }
 
 if (encryptedPrivateKeys.length === 0) {
-  throw new Error("No encrypted private keys found in environment variables");
+  logger.error(`
+    ========================================================
+    错误：未找到任何加密私钥！
+    请确保：
+    1. 已正确配置 .env 文件
+    2. 私钥格式为 ENCRYPTED_PRIVATE_KEY_1 ... ENCRYPTED_PRIVATE_KEY_16
+    3. 私钥已正确加密
+    4. 程序已加载 .env 文件
+    ========================================================
+  `);
+  process.exit(1);
 } else {
   logger.info(`成功加载 ${encryptedPrivateKeys.length} 个钱包`);
 }
