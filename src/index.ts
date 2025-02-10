@@ -1,7 +1,7 @@
-import { getKeypairFromEnvironment } from "@solana-developers/helpers";
 import {
   ComputeBudgetProgram,
   Connection,
+  Keypair,
   PublicKey,
   SystemProgram,
   TransactionInstruction,
@@ -11,18 +11,25 @@ import {
 import axios from "axios";
 import bs58 from "bs58";
 import { Buffer } from "buffer";
-import "dotenv/config";
+import dotenv from "dotenv";
 import { logger } from "./logger";
+import { decrypt } from "./utils/cryptoUtils";
+dotenv.config();
 
-// 加载环境变量
-// dotenv.config();
 const rpcUrl = process.env.RPC_URL || "";
 // const grpcUrl = process.env.GRPC_URL || "";
 const jupiterUrl = process.env.JUPITER_URL || "";
 const jitoUrl = process.env.JITO_URL || "";
 
+// 从环境变量中获取加密后的私钥并解密
+const encryptedPrivateKey = process.env.ENCRYPTED_PRIVATE_KEY;
+if (!encryptedPrivateKey) {
+  throw new Error("ENCRYPTED_PRIVATE_KEY is not defined in environment variables");
+}
+const decryptedKey = decrypt(encryptedPrivateKey);
+
 // wallet
-const payer = getKeypairFromEnvironment("PRIVATE_KEY");
+const payer = Keypair.fromSecretKey(bs58.decode(decryptedKey));
 logger.info(`payer: ${payer.publicKey.toBase58()}`);
 
 const connection = new Connection(rpcUrl, "processed");
@@ -74,18 +81,6 @@ const jitoTipAccounts = [
   "DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL",
   "3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT",
 ];
-
-// const ips = [];
-
-const getPublicIp = async () => {
-  try {
-    const response = await axios.get("https://ifconfig.me/ip");
-    return response.data.trim(); // 返回出口 IP 地址
-  } catch (error) {
-    logger.error(`获取出口 IP 地址失败: ${error.message}`);
-    return null;
-  }
-};
 
 async function run() {
   const start = Date.now();
@@ -197,16 +192,6 @@ async function run() {
     const serializedTransaction = transaction.serialize();
     const base58Transaction = bs58.encode(serializedTransaction);
 
-    // 在发送请求前获取出口 IP 地址
-    // const publicIp = await getPublicIp();
-    // logger.info(`当前出口 IP 地址: ${publicIp}`);
-
-    // 随机选择一个IP地址
-    // const selectedIp = ips[Math.floor(Math.random() * ips.length)];
-    // const agent = new https.Agent({
-    //   localAddress: selectedIp, // 指定出口 IP
-    // });
-
     const bundle = {
       jsonrpc: "2.0",
       id: 1,
@@ -218,8 +203,6 @@ async function run() {
       headers: {
         "Content-Type": "application/json",
       },
-      // httpsAgent: agent, // 使用自定义 agent
-      // localAddress: selectedIp, // 指定源IP地址
     } as any);
     jitoRequestCount++; // 成功请求计数
 
