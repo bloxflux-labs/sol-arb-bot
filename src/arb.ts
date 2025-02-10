@@ -54,17 +54,27 @@ function instructionFormat(instruction) {
   };
 }
 
-// 新增统计变量
-let jitoRequestCount = 0;
-let error429Count = 0;
+// 统计变量
+let totalRequestCount = 0; // 总请求计数
+let jitoRequestCount = 0; // 成功请求计数
+let error429Count = 0; // 429 错误计数
 let lastLogTime = Date.now();
 
 // 每10秒输出统计信息
 function logStatistics() {
   const now = Date.now();
   if (now - lastLogTime >= 10000) {
-    // 10秒
-    logger.warn(`统计信息 - 每10秒Jito请求量: ${jitoRequestCount}, 429错误次数: ${error429Count}`);
+    logger.info(
+      `统计 - 过去 10 秒：发送请求总量: ${totalRequestCount
+        .toString()
+        .padStart(3, " ")}, 成功响应量: ${jitoRequestCount
+        .toString()
+        .padStart(3, " ")}, 平均每秒成功: ${(jitoRequestCount / 10)
+        .toFixed(1)
+        .padStart(4, " ")}, 429 错误次数: ${error429Count.toString().padStart(3, " ")}`
+    );
+    // 重置统计变量
+    totalRequestCount = 0;
     jitoRequestCount = 0;
     error429Count = 0;
     lastLogTime = now;
@@ -199,22 +209,33 @@ async function run() {
       params: [[base58Transaction]],
     };
 
-    const bundle_resp = await axios.post(`${jitoUrl}/api/v1/bundles`, bundle, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    } as any);
-    jitoRequestCount++; // 成功请求计数
+    try {
+      totalRequestCount++; // 总请求计数
+      const bundle_resp = await axios.post(`${jitoUrl}/api/v1/bundles`, bundle, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      } as any);
 
-    const bundle_id = bundle_resp.data.result;
-    logger.info(`sent to jito, bundle id: ${bundle_id}`);
-
-    // cal time cost
-    const end = Date.now();
-    const duration = end - start;
-
-    // console.log(`${wSolMint} - ${usdcMint}`);
-    logger.info(`slot: ${mergedQuoteResp.contextSlot}, total duration: ${duration}ms`);
+      if (bundle_resp.status === 200) {
+        jitoRequestCount++; // 成功请求计数
+        const bundle_id = bundle_resp.data.result;
+        logger.info(`sent to jito, bundle id: ${bundle_id}`);
+        const duration = Date.now() - start;
+        // logger.info(`200: 请求成功, 耗时: ${duration}ms`);
+        logger.info(`slot: ${mergedQuoteResp.contextSlot}, total duration: ${duration}ms`);
+      } else {
+        logger.error(`请求失败, 状态码: ${bundle_resp.status}`);
+      }
+    } catch (error: any) {
+      const duration = Date.now() - start;
+      if (error.isAxiosError && error.response?.status === 429) {
+        error429Count++; // 429 错误计数
+        // logger.error(`429: 请求过于频繁, 耗时: ${duration}ms`);
+      } else {
+        logger.error(`请求失败, 耗时: ${duration}ms, 错误: ${error.message}`);
+      }
+    }
   }
 }
 
@@ -223,13 +244,7 @@ async function main() {
     try {
       await run();
     } catch (error) {
-      if (error.isAxiosError && error.response?.status === 429) {
-        error429Count++; // 429错误计数
-        logger.error(`429: 请求过于频繁`);
-        // await wait(1000); // 等待1秒
-      } else {
-        logger.error(`发生错误: ${error.message}`);
-      }
+      logger.error(`发生错误: ${error.message}`);
     }
 
     // 输出统计信息
