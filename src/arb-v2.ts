@@ -137,19 +137,25 @@ const jitoTipAccounts = [
 let operationCounter = 0;
 
 // 带耗时的日志输出
-function timedLog(message: string, startTime: number) {
+function timedLog(message: string, startTime: number, lastStepTime?: number) {
   const elapsed = Date.now() - startTime;
-  logger.info(`[耗时 ${elapsed.toString().padStart(4, " ")}ms] ${message}`);
+  const stepTime = lastStepTime ? Date.now() - lastStepTime : 0;
+  logger.info(
+    `[总耗时 ${elapsed.toString().padStart(4, " ")}ms] ` +
+      `[步骤耗时 ${stepTime.toString().padStart(4, " ")}ms] ${message}`
+  );
+  return Date.now(); // 返回当前时间作为下一步的lastStepTime
 }
 
 async function run() {
   const start = Date.now();
   const currentOperationId = operationCounter++;
+  let lastStepTime = start;
 
-  timedLog(`---- 开始执行套利操作 #${currentOperationId} ----`, start);
+  lastStepTime = timedLog(`开始执行套利操作 #${currentOperationId}`, start, lastStepTime);
 
   // quote0: WSOL -> USDC
-  timedLog("获取 WSOL -> USDC 报价", start);
+  lastStepTime = timedLog("获取 WSOL -> USDC 报价", start, lastStepTime);
   const quote0Params = {
     inputMint: wSolMint,
     outputMint: usdcMint,
@@ -159,10 +165,14 @@ async function run() {
     maxAccounts: 20,
   };
   const quote0Resp = await axios.get(quoteUrl, { params: quote0Params });
-  timedLog(`WSOL -> USDC 报价完成，价格: ${quote0Resp.data.outAmount}`, start);
+  lastStepTime = timedLog(
+    `WSOL -> USDC 报价完成，输出金额: ${quote0Resp.data.outAmount}`,
+    start,
+    lastStepTime
+  );
 
   // quote1: USDC -> WSOL
-  timedLog("获取 USDC -> WSOL 报价", start);
+  lastStepTime = timedLog("获取 USDC -> WSOL 报价", start, lastStepTime);
   const quote1Params = {
     inputMint: usdcMint,
     outputMint: wSolMint,
@@ -172,7 +182,11 @@ async function run() {
     maxAccounts: 20,
   };
   const quote1Resp = await axios.get(quoteUrl, { params: quote1Params });
-  timedLog(`USDC -> WSOL 报价完成，价格: ${quote1Resp.data.outAmount}`, start);
+  lastStepTime = timedLog(
+    `USDC -> WSOL 报价完成，价格: ${quote1Resp.data.outAmount}`,
+    start,
+    lastStepTime
+  );
 
   // profit but not real
   const diffLamports = quote1Resp.data.outAmount - quote0Params.amount;
@@ -182,9 +196,9 @@ async function run() {
   // threhold
   const thre = 10000;
   if (diffLamports > thre) {
-    timedLog(`检测到套利机会，差额: ${diffLamports}`, start);
+    lastStepTime = timedLog(`检测到套利机会，差额: ${diffLamports}`, start, lastStepTime);
     const payer = getNextPayer();
-    timedLog(`当前使用的payer: ${payer.publicKey.toBase58()}`, start);
+    lastStepTime = timedLog(`当前使用的payer: ${payer.publicKey.toBase58()}`, start, lastStepTime);
 
     // merge quote0 and quote1 response
     let mergedQuoteResp = quote0Resp.data;
@@ -207,7 +221,7 @@ async function run() {
     const instructionsResp = await axios.post(swapInstructionUrl, swapData);
     const instructions = instructionsResp.data;
 
-    timedLog(`get instructions`, start);
+    lastStepTime = timedLog(`get instructions`, start, lastStepTime);
 
     // bulid tx
     let ixs: TransactionInstruction[] = [];
@@ -246,7 +260,7 @@ async function run() {
       })
     );
 
-    timedLog(`get addressLookupTableAccounts`, start);
+    lastStepTime = timedLog(`get addressLookupTableAccounts`, start, lastStepTime);
 
     // v0 tx
     const { blockhash } = await connection.getLatestBlockhash();
@@ -258,7 +272,7 @@ async function run() {
     const transaction = new VersionedTransaction(messageV0);
     transaction.sign([payer]);
 
-    timedLog(`sign transaction`, start);
+    lastStepTime = timedLog(`sign transaction`, start, lastStepTime);
 
     // simulate
     // const simulationResult = await connection.simulateTransaction(transaction);
@@ -277,7 +291,8 @@ async function run() {
 
     try {
       totalRequestCount++; // 总请求计数
-      timedLog(`发送交易到Jito`, start);
+      lastStepTime = timedLog(`发送交易到Jito`, start, lastStepTime);
+
       const bundle_resp = await axios.post(`${jitoUrl}/api/v1/bundles`, bundle, {
         headers: {
           "Content-Type": "application/json",
@@ -287,10 +302,10 @@ async function run() {
       if (bundle_resp.status === 200) {
         jitoRequestCount++; // 成功请求计数
         const bundle_id = bundle_resp.data.result;
-        timedLog(`交易成功发送到Jito，bundle id: ${bundle_id}`, start);
-        timedLog(`slot: ${mergedQuoteResp.contextSlot}`, start);
+        lastStepTime = timedLog(`交易成功发送到Jito，bundle id: ${bundle_id}`, start, lastStepTime);
+        lastStepTime = timedLog(`slot: ${mergedQuoteResp.contextSlot}`, start, lastStepTime);
       } else {
-        timedLog(`请求失败，状态码: ${bundle_resp.status}`, start);
+        lastStepTime = timedLog(`请求失败，状态码: ${bundle_resp.status}`, start, lastStepTime);
       }
     } catch (error: any) {
       const duration = Date.now() - start;
@@ -298,11 +313,11 @@ async function run() {
         error429Count++; // 429 错误计数
         // logger.error(`429: 请求过于频繁, 耗时: ${duration}ms`);
       } else {
-        timedLog(`请求失败，错误: ${error.message}`, start);
+        lastStepTime = timedLog(`请求失败，错误: ${error.message}`, start, lastStepTime);
       }
     }
   }
-  // timedLog(`---- 套利操作 #${currentOperationId} 完成 ----`, start);
+  lastStepTime = timedLog(`---- 套利操作 #${currentOperationId} 完成 ----`, start, lastStepTime);
 }
 
 async function main() {
