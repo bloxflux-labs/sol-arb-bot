@@ -11,6 +11,7 @@ const limit = pLimit(concurrency); // 创建并发限制器
 // 初始化日志
 logger.info(`Jito URL: ${jitoUrl}`);
 logger.info(`请求并发量: ${concurrency}/s`);
+logger.info(`每 10 秒输出统计信息, 请稍后...`);
 
 // 统计变量
 let totalRequestCount = 0; // 总请求计数
@@ -46,6 +47,7 @@ async function run() {
   };
 
   try {
+    totalRequestCount++; // 统计总请求量
     const bundle_resp = await axios.post(`${jitoUrl}/api/v1/bundles`, bundle, {
       headers: {
         "Content-Type": "application/json",
@@ -82,7 +84,6 @@ async function main() {
             logger.error(`请求发生错误: ${error.message}`);
           })
         );
-        totalRequestCount++; // 统计总请求量
       }, i * interval); // 均匀分布请求
     }
   }
