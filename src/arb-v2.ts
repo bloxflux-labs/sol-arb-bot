@@ -20,6 +20,14 @@ const rpcUrl = process.env.RPC_URL || "";
 // const grpcUrl = process.env.GRPC_URL || "";
 const jupiterUrl = process.env.JUPITER_URL || "";
 const jitoUrl = process.env.JITO_URL || "";
+if (!rpcUrl || !jupiterUrl || !jitoUrl) {
+  logger.error(`
+    ========================================================
+    错误：缺少环境变量, RPC_URL: ${rpcUrl}, JUPITER_URL: ${jupiterUrl}, JITO_URL: ${jitoUrl}
+  `);
+  process.exit(1);
+}
+
 // 钱包数量
 const privateKeyCount = parseInt(process.env.PRIVATE_KEY_COUNT || "10");
 
