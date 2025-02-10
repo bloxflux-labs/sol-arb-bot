@@ -20,17 +20,22 @@ const rpcUrl = process.env.RPC_URL || "";
 // const grpcUrl = process.env.GRPC_URL || "";
 const jupiterUrl = process.env.JUPITER_URL || "";
 const jitoUrl = process.env.JITO_URL || "";
+// 钱包数量
+const privateKeyCount = parseInt(process.env.PRIVATE_KEY_COUNT || "10");
 
-// 从环境变量中获取多个加密后的私钥并解密
-const encryptedPrivateKeys = [
-  process.env.ENCRYPTED_PRIVATE_KEY_1,
-  process.env.ENCRYPTED_PRIVATE_KEY_2,
-  process.env.ENCRYPTED_PRIVATE_KEY_3,
-  // 添加更多私钥...
-].filter(Boolean);
+// 动态生成加密私钥数组
+const encryptedPrivateKeys: string[] = [];
+for (let i = 1; i <= privateKeyCount; i++) {
+  const key = process.env[`ENCRYPTED_PRIVATE_KEY_${i}`];
+  if (key) {
+    encryptedPrivateKeys.push(key);
+  }
+}
 
 if (encryptedPrivateKeys.length === 0) {
   throw new Error("No encrypted private keys found in environment variables");
+} else {
+  logger.info(`成功加载 ${encryptedPrivateKeys.length} 个钱包`);
 }
 
 // 创建多个payer
@@ -58,7 +63,7 @@ const swapInstructionUrl = `${jupiterUrl}/swap-instructions`;
 const wSolMint = "So11111111111111111111111111111111111111112";
 const usdcMint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+// const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function instructionFormat(instruction) {
   return {
@@ -112,7 +117,6 @@ const jitoTipAccounts = [
 
 async function run() {
   const start = Date.now();
-  const payer = getNextPayer(); // 每次运行获取一个新的payer
 
   // quote0: WSOL -> USDC
   const quote0Params = {
@@ -145,6 +149,7 @@ async function run() {
   const thre = 10000;
   if (diffLamports > thre) {
     logger.info(`diffLamports: ${diffLamports}`);
+    const payer = getNextPayer(); // 每次运行获取一个新的payer
     logger.info(`当前使用的payer: ${payer.publicKey.toBase58()}`);
 
     // merge quote0 and quote1 response
