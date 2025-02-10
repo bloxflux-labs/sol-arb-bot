@@ -21,16 +21,34 @@ const rpcUrl = process.env.RPC_URL || "";
 const jupiterUrl = process.env.JUPITER_URL || "";
 const jitoUrl = process.env.JITO_URL || "";
 
-// 从环境变量中获取加密后的私钥并解密
-const encryptedPrivateKey = process.env.ENCRYPTED_PRIVATE_KEY;
-if (!encryptedPrivateKey) {
-  throw new Error("ENCRYPTED_PRIVATE_KEY is not defined in environment variables");
-}
-const decryptedKey = decrypt(encryptedPrivateKey);
+// 从环境变量中获取多个加密后的私钥并解密
+const encryptedPrivateKeys = [
+  process.env.ENCRYPTED_PRIVATE_KEY_1,
+  process.env.ENCRYPTED_PRIVATE_KEY_2,
+  process.env.ENCRYPTED_PRIVATE_KEY_3,
+  // 添加更多私钥...
+].filter(Boolean);
 
-// wallet
-const payer = Keypair.fromSecretKey(bs58.decode(decryptedKey));
-logger.info(`payer: ${payer.publicKey.toBase58()}`);
+if (encryptedPrivateKeys.length === 0) {
+  throw new Error("No encrypted private keys found in environment variables");
+}
+
+// 创建多个payer
+const payers = encryptedPrivateKeys.map((key) => {
+  const decryptedKey = decrypt(key!);
+  return Keypair.fromSecretKey(bs58.decode(decryptedKey));
+});
+
+// 当前使用的payer索引
+let currentPayerIndex = 0;
+
+// 获取下一个payer
+function getNextPayer() {
+  const payer = payers[currentPayerIndex];
+  currentPayerIndex = (currentPayerIndex + 1) % payers.length;
+  // logger.info(`当前使用的payer: ${payer.publicKey.toBase58()}`);
+  return payer;
+}
 
 const connection = new Connection(rpcUrl, "processed");
 const quoteUrl = `${jupiterUrl}/quote`;
@@ -94,6 +112,7 @@ const jitoTipAccounts = [
 
 async function run() {
   const start = Date.now();
+  const payer = getNextPayer(); // 每次运行获取一个新的payer
 
   // quote0: WSOL -> USDC
   const quote0Params = {
@@ -126,6 +145,8 @@ async function run() {
   const thre = 10000;
   if (diffLamports > thre) {
     logger.info(`diffLamports: ${diffLamports}`);
+    logger.info(`当前使用的payer: ${payer.publicKey.toBase58()}`);
+
     // merge quote0 and quote1 response
     let mergedQuoteResp = quote0Resp.data;
     mergedQuoteResp.outputMint = quote1Resp.data.outputMint;
