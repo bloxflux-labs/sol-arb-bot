@@ -1,7 +1,5 @@
-import { Connection, PublicKey } from "@solana/web3.js";
-
-const RPC_URL = process.env.RPC_URL || "https://api.mainnet-beta.solana.com";
-const connection = new Connection(RPC_URL);
+import { PublicKey } from "@solana/web3.js";
+import { connection } from "./connectionUtils";
 
 let addressLookupTableCache: { [key: string]: any } = {}; // 缓存对象
 let lastCacheUpdateTime = 0; // 上次缓存更新时间

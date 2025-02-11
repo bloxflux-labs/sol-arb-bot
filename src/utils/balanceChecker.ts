@@ -1,13 +1,7 @@
-import { Connection, PublicKey } from "@solana/web3.js";
-import dotenv from "dotenv";
+import { PublicKey } from "@solana/web3.js";
 import fs from "fs";
 import path from "path";
-
-dotenv.config();
-
-// Solana 网络连接
-const RPC_URL = process.env.RPC_URL || "https://api.mainnet-beta.solana.com";
-const connection = new Connection(RPC_URL);
+import { connection } from "./connectionUtils";
 
 // USDC 的 Mint 地址
 const USDC_MINT = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");

@@ -1,20 +1,17 @@
 import {
-  Connection,
   Keypair,
   sendAndConfirmTransaction,
+  SystemProgram,
   Transaction,
   TransactionInstruction,
 } from "@solana/web3.js";
 import dotenv from "dotenv";
-
-import { SystemProgram } from "@solana/web3.js";
 import { logger } from "../logger";
+import { connection } from "./connectionUtils";
 
 dotenv.config();
 
-const rpcUrl = process.env.RPC_URL || "https://api.devnet.solana.com";
 const mainPayer = Keypair.generate();
-const connection = new Connection(rpcUrl, "processed");
 
 async function tipGen() {
   // 生成 100 个代付账号，每个账号预存 0.01 SOL

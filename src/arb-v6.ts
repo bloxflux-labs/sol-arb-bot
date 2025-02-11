@@ -1,6 +1,5 @@
 import {
   ComputeBudgetProgram,
-  Connection,
   Keypair,
   PublicKey,
   SystemProgram,
@@ -14,8 +13,11 @@ import { Buffer } from "buffer";
 import dotenv from "dotenv";
 import { logger } from "./logger";
 import { getAddressLookupTables } from "./utils/altUtils";
+import { checkTempWalletBalance } from "./utils/balanceUtils";
+import { getBlockhashWithCache } from "./utils/blockhashUtils";
 import { decrypt } from "./utils/cryptoUtils";
 import { getRandomTipAccount } from "./utils/jitoUtils";
+import { timedLog } from "./utils/logUtils";
 
 dotenv.config();
 
@@ -105,7 +107,7 @@ function getNextTipPayer() {
   return tipPayer;
 }
 
-const connection = new Connection(rpcUrl, "processed");
+// const connection = new Connection(rpcUrl, "processed");
 const quoteUrl = `${jupiterUrl}/quote`;
 const swapInstructionUrl = `${jupiterUrl}/swap-instructions`;
 
@@ -155,17 +157,6 @@ function logStatistics() {
 // 全局操作计数器
 let operationCounter = 0;
 
-// 带耗时的日志输出
-function timedLog(message: string, startTime: number, lastStepTime?: number) {
-  const elapsed = Date.now() - startTime;
-  const stepTime = lastStepTime ? Date.now() - lastStepTime : 0;
-  logger.info(
-    `[总耗时 ${elapsed.toString().padStart(4, " ")}ms] ` +
-      `[步骤耗时 ${stepTime.toString().padStart(4, " ")}ms] ${message}`
-  );
-  return Date.now(); // 返回当前时间作为下一步的lastStepTime
-}
-
 // 记录临时钱包
 const tempWallets: { keypair: Keypair; used: boolean }[] = [];
 
@@ -174,14 +165,6 @@ function getNextTempWallet() {
   const tempWallet = Keypair.generate();
   tempWallets.push({ keypair: tempWallet, used: false });
   return tempWallet;
-}
-
-// 检查临时钱包余额
-async function checkTempWalletBalance(tempWallet: Keypair) {
-  const balance = await connection.getBalance(tempWallet.publicKey);
-  if (balance > 0) {
-    logger.warn(`临时钱包 ${tempWallet.publicKey.toBase58()} 有余额未转回: ${balance} lamports`);
-  }
 }
 
 async function run() {
@@ -312,15 +295,7 @@ async function run() {
       }),
     ];
 
-    const { blockhash } = await connection.getLatestBlockhash();
-
-    // ALT
-    // const addressLookupTableAccounts = await Promise.all(
-    //   instructions.addressLookupTableAddresses.map(async (address) => {
-    //     const result = await connection.getAddressLookupTable(new PublicKey(address));
-    //     return result.value;
-    //   })
-    // );
+    const blockhash = await getBlockhashWithCache();
 
     // 获取地址查找表
     const addressLookupTableAccounts = await getAddressLookupTables(
