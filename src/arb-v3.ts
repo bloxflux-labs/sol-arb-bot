@@ -28,49 +28,78 @@ if (!rpcUrl || !jupiterUrl || !jitoUrl) {
   process.exit(1);
 }
 
-// 钱包数量
-const privateKeyCount = parseInt(process.env.PRIVATE_KEY_COUNT || "10");
+// 套利主钱包数量
+const mainPayerCount = parseInt(process.env.MAIN_PAYER_COUNT || "1");
+
+// 代付钱包数量
+const tipPayerCount = parseInt(process.env.TIP_PAYER_COUNT || "10");
 
 // 动态生成加密私钥数组
-const encryptedPrivateKeys: string[] = [];
-for (let i = 1; i <= privateKeyCount; i++) {
-  const key = process.env[`ENCRYPTED_PRIVATE_KEY_${i}`];
+const encryptedMainPrivateKeys: string[] = [];
+const encryptedTipPrivateKeys: string[] = [];
+
+for (let i = 1; i <= mainPayerCount; i++) {
+  const key = process.env[`ENCRYPTED_MAIN_PRIVATE_KEY_${i}`];
   if (key) {
-    encryptedPrivateKeys.push(key);
+    encryptedMainPrivateKeys.push(key);
   }
 }
 
-if (encryptedPrivateKeys.length === 0) {
+for (let i = 1; i <= tipPayerCount; i++) {
+  const key = process.env[`ENCRYPTED_TIP_PRIVATE_KEY_${i}`];
+  if (key) {
+    encryptedTipPrivateKeys.push(key);
+  }
+}
+
+if (encryptedMainPrivateKeys.length === 0 || encryptedTipPrivateKeys.length === 0) {
   logger.error(`
     ========================================================
-    错误：未找到任何加密私钥！
+    错误：未找到足够的加密私钥！
     请确保：
     1. 已正确配置 .env 文件
-    2. 私钥格式为 ENCRYPTED_PRIVATE_KEY_1 ... ENCRYPTED_PRIVATE_KEY_16
-    3. 私钥已正确加密
-    4. 程序已加载 .env 文件
+    2. 主私钥格式为 ENCRYPTED_MAIN_PRIVATE_KEY_1 ... ENCRYPTED_MAIN_PRIVATE_KEY_N
+    3. 代付私钥格式为 ENCRYPTED_TIP_PRIVATE_KEY_1 ... ENCRYPTED_TIP_PRIVATE_KEY_N
+    4. 私钥已正确加密
+    5. 程序已加载 .env 文件
     ========================================================
   `);
   process.exit(1);
 } else {
-  logger.info(`成功加载 ${encryptedPrivateKeys.length} 个钱包`);
+  logger.info(
+    `成功加载 ${encryptedMainPrivateKeys.length} 个主钱包和 ${encryptedTipPrivateKeys.length} 个代付钱包`
+  );
 }
 
-// 创建多个payer
-const payers = encryptedPrivateKeys.map((key) => {
+// 创建主钱包和代付钱包
+const mainPayers = encryptedMainPrivateKeys.map((key) => {
   const decryptedKey = decrypt(key!);
   return Keypair.fromSecretKey(bs58.decode(decryptedKey));
 });
 
-// 当前使用的payer索引
-let currentPayerIndex = 0;
+const tipPayers = encryptedTipPrivateKeys.map((key) => {
+  const decryptedKey = decrypt(key!);
+  return Keypair.fromSecretKey(bs58.decode(decryptedKey));
+});
 
-// 获取下一个payer
-function getNextPayer() {
-  const payer = payers[currentPayerIndex];
-  currentPayerIndex = (currentPayerIndex + 1) % payers.length;
-  // logger.info(`当前使用的payer: ${payer.publicKey.toBase58()}`);
-  return payer;
+// 当前使用的主钱包索引
+let currentMainPayerIndex = 0;
+
+// 获取下一个主钱包
+function getNextMainPayer() {
+  const mainPayer = mainPayers[currentMainPayerIndex];
+  currentMainPayerIndex = (currentMainPayerIndex + 1) % mainPayers.length;
+  return mainPayer;
+}
+
+// 当前使用的代付钱包索引
+let currentTipPayerIndex = 0;
+
+// 获取下一个代付钱包
+function getNextTipPayer() {
+  const tipPayer = tipPayers[currentTipPayerIndex];
+  currentTipPayerIndex = (currentTipPayerIndex + 1) % tipPayers.length;
+  return tipPayer;
 }
 
 const connection = new Connection(rpcUrl, "processed");
@@ -197,7 +226,7 @@ async function run() {
   const thre = 10000;
   if (diffLamports > thre) {
     lastStepTime = timedLog(`检测到套利机会，差额: ${diffLamports}`, start, lastStepTime);
-    const payer = getNextPayer();
+    const payer = getNextMainPayer();
     lastStepTime = timedLog(`当前使用的payer: ${payer.publicKey.toBase58()}`, start, lastStepTime);
 
     // merge quote0 and quote1 response
@@ -245,9 +274,10 @@ async function run() {
     // 5. cal real profit and pay for jito from your program
     // a simple transfer instruction here
     // the real profit and tip should be calculated in your program
+    const tipPayer = getNextTipPayer();
     const tipInstruction = SystemProgram.transfer({
-      fromPubkey: payer.publicKey,
-      toPubkey: new PublicKey(jitoTipAccounts[Math.floor(Math.random() * 8)]), // a random account from jito tip accounts
+      fromPubkey: tipPayer.publicKey,
+      toPubkey: new PublicKey(jitoTipAccounts[Math.floor(Math.random() * 8)]), // 从 Jito tip 账户中随机选择一个
       lamports: jitoTip,
     });
     ixs.push(tipInstruction);
