@@ -227,7 +227,10 @@ async function run() {
   if (diffLamports > thre) {
     lastStepTime = timedLog(`检测到套利机会，差额: ${diffLamports}`, start, lastStepTime);
     const payer = getNextMainPayer();
-    const tipPayer = getNextTipPayer();
+    // const tipPayer = getNextTipPayer();
+    // 创建临时钱包
+    const tipPayer = Keypair.generate();
+
     lastStepTime = timedLog(`当前使用的payer: ${payer.publicKey.toBase58()}`, start, lastStepTime);
     lastStepTime = timedLog(
       `当前使用的tipPayer: ${tipPayer.publicKey.toBase58()}`,
@@ -281,12 +284,29 @@ async function run() {
     // a simple transfer instruction here
     // the real profit and tip should be calculated in your program
 
+    // 主钱包向临时钱包转账
+    const transferToTempInstruction = SystemProgram.transfer({
+      fromPubkey: payer.publicKey,
+      toPubkey: tipPayer.publicKey,
+      lamports: jitoTip + 10000, // 转账金额 = tip + 少量额外费用
+    });
+    ixs.push(transferToTempInstruction);
+
+    // 临时钱包支付 Jito tip
     const tipInstruction = SystemProgram.transfer({
       fromPubkey: tipPayer.publicKey,
-      toPubkey: new PublicKey(jitoTipAccounts[Math.floor(Math.random() * 8)]), // 从 Jito tip 账户中随机选择一个
+      toPubkey: new PublicKey(jitoTipAccounts[Math.floor(Math.random() * 8)]),
       lamports: jitoTip,
     });
     ixs.push(tipInstruction);
+
+    // 临时钱包余额转回主钱包
+    const transferBackInstruction = SystemProgram.transfer({
+      fromPubkey: tipPayer.publicKey,
+      toPubkey: payer.publicKey,
+      lamports: 10000, // 转回剩余的少量费用
+    });
+    ixs.push(transferBackInstruction);
 
     // ALT
     const addressLookupTableAccounts = await Promise.all(
