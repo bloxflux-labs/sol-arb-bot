@@ -237,7 +237,7 @@ async function run() {
 
     // bulid tx
     let ixs: TransactionInstruction[] = [];
-    let tipIxs: TransactionInstruction[] = [];
+    // let tipIxs: TransactionInstruction[] = [];
 
     // 1. cu
     const computeUnitLimitInstruction = ComputeBudgetProgram.setComputeUnitLimit({
@@ -275,7 +275,7 @@ async function run() {
       toPubkey: new PublicKey(randomTipAccount),
       lamports: jitoTip,
     });
-    tipIxs.push(tipInstruction);
+    ixs.push(tipInstruction);
 
     // 临时钱包余额转回主钱包
     const transferBackInstruction = SystemProgram.transfer({
@@ -283,7 +283,7 @@ async function run() {
       toPubkey: payer.publicKey,
       lamports: 1_000_000, // 转回剩余的少量费用
     });
-    tipIxs.push(transferBackInstruction);
+    ixs.push(transferBackInstruction);
 
     const blockhash = await getBlockhashWithCache();
 
@@ -296,17 +296,17 @@ async function run() {
 
     // v0 tx
     // 合并主交易指令和 tip 交易指令
-    const allIxs = [...ixs, ...tipIxs];
+    // const allIxs = [...ixs, ...tipIxs];
     const messageV0 = new TransactionMessage({
       payerKey: tempWallet.publicKey,
       recentBlockhash: blockhash,
-      instructions: allIxs,
+      instructions: ixs,
     }).compileToV0Message(addressLookupTableAccounts);
     const transaction = new VersionedTransaction(messageV0);
     transaction.sign([payer, tempWallet]);
 
     // simulate
-    // const simulationResult = await connection.simulateTransaction(transaction);
+    // const simulationResult = await simulateTransaction(transaction);
     // console.log(JSON.stringify(simulationResult));
 
     // send bundle
