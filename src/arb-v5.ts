@@ -35,6 +35,7 @@ if (!rpcUrl || !jupiterUrl || !jitoUrl) {
 
 // 最小利润
 const minQuoteProfit = parseInt(process.env.MIN_QUOTE_PROFIT || "10000");
+logger.info(`最小利润: ${minQuoteProfit}`);
 
 // 套利主钱包数量
 const mainPayerCount = parseInt(process.env.MAIN_PAYER_COUNT || "1");
