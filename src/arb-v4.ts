@@ -31,12 +31,8 @@ if (!rpcUrl || !jupiterUrl || !jitoUrl) {
 // 套利主钱包数量
 const mainPayerCount = parseInt(process.env.MAIN_PAYER_COUNT || "1");
 
-// 代付钱包数量
-const tipPayerCount = parseInt(process.env.TIP_PAYER_COUNT || "10");
-
 // 动态生成加密私钥数组
 const encryptedMainPrivateKeys: string[] = [];
-const encryptedTipPrivateKeys: string[] = [];
 
 for (let i = 1; i <= mainPayerCount; i++) {
   const key = process.env[`ENCRYPTED_MAIN_PRIVATE_KEY_${i}`];
@@ -45,39 +41,24 @@ for (let i = 1; i <= mainPayerCount; i++) {
   }
 }
 
-for (let i = 1; i <= tipPayerCount; i++) {
-  const key = process.env[`ENCRYPTED_TIP_PRIVATE_KEY_${i}`];
-  if (key) {
-    encryptedTipPrivateKeys.push(key);
-  }
-}
-
-if (encryptedMainPrivateKeys.length === 0 || encryptedTipPrivateKeys.length === 0) {
+if (encryptedMainPrivateKeys.length === 0) {
   logger.error(`
     ========================================================
     错误：未找到足够的加密私钥！
     请确保：
     1. 已正确配置 .env 文件
     2. 主私钥格式为 ENCRYPTED_MAIN_PRIVATE_KEY_1 ... ENCRYPTED_MAIN_PRIVATE_KEY_N
-    3. 代付私钥格式为 ENCRYPTED_TIP_PRIVATE_KEY_1 ... ENCRYPTED_TIP_PRIVATE_KEY_N
-    4. 私钥已正确加密
-    5. 程序已加载 .env 文件
+    3. 私钥已正确加密
+    4. 程序已加载 .env 文件
     ========================================================
   `);
   process.exit(1);
 } else {
-  logger.info(
-    `成功加载 ${encryptedMainPrivateKeys.length} 个主钱包和 ${encryptedTipPrivateKeys.length} 个代付钱包`
-  );
+  logger.info(`成功加载 ${encryptedMainPrivateKeys.length} 个主钱包`);
 }
 
-// 创建主钱包和代付钱包
+// 创建主钱包
 const mainPayers = encryptedMainPrivateKeys.map((key) => {
-  const decryptedKey = decrypt(key!);
-  return Keypair.fromSecretKey(bs58.decode(decryptedKey));
-});
-
-const tipPayers = encryptedTipPrivateKeys.map((key) => {
   const decryptedKey = decrypt(key!);
   return Keypair.fromSecretKey(bs58.decode(decryptedKey));
 });
@@ -92,16 +73,6 @@ function getNextMainPayer() {
   return mainPayer;
 }
 
-// 当前使用的代付钱包索引
-let currentTipPayerIndex = 0;
-
-// 获取下一个代付钱包
-function getNextTipPayer() {
-  const tipPayer = tipPayers[currentTipPayerIndex];
-  currentTipPayerIndex = (currentTipPayerIndex + 1) % tipPayers.length;
-  return tipPayer;
-}
-
 const connection = new Connection(rpcUrl, "processed");
 const quoteUrl = `${jupiterUrl}/quote`;
 const swapInstructionUrl = `${jupiterUrl}/swap-instructions`;
@@ -109,8 +80,6 @@ const swapInstructionUrl = `${jupiterUrl}/swap-instructions`;
 // WSOL and USDC mint address
 const wSolMint = "So11111111111111111111111111111111111111112";
 const usdcMint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-
-// const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function instructionFormat(instruction) {
   return {
@@ -245,7 +214,6 @@ async function run() {
   if (diffLamports > thre) {
     lastStepTime = timedLog(`检测到套利机会，差额: ${diffLamports}`, start, lastStepTime);
     const payer = getNextMainPayer();
-    // const tipPayer = getNextTipPayer();
     // 创建临时钱包
     const tempWallet = getNextTempWallet();
 
