@@ -33,6 +33,9 @@ if (!rpcUrl || !jupiterUrl || !jitoUrl) {
   process.exit(1);
 }
 
+// 最小利润
+const minQuoteProfit = parseInt(process.env.MIN_QUOTE_PROFIT || "10000");
+
 // 套利主钱包数量
 const mainPayerCount = parseInt(process.env.MAIN_PAYER_COUNT || "1");
 
@@ -185,8 +188,7 @@ async function run() {
   const jitoTip = Math.floor(diffLamports * 0.95);
 
   // threhold
-  const thre = 10000;
-  if (diffLamports > thre) {
+  if (diffLamports > minQuoteProfit) {
     lastStepTime = timedLog(`检测到套利机会，差额: ${diffLamports}`, start, lastStepTime);
     const payer = getNextMainPayer();
     // 创建临时钱包
