@@ -317,7 +317,7 @@ async function run() {
       instructions: ixs,
     }).compileToV0Message(addressLookupTableAccounts);
     const mainTransaction = new VersionedTransaction(mainMessageV0);
-    mainTransaction.sign([payer]); // 主钱包签名
+    mainTransaction.sign([payer, tempWallet]); // 主钱包签名
 
     // simulate
     // const simulationResult = await connection.simulateTransaction(transaction);
