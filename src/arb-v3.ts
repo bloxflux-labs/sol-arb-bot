@@ -227,7 +227,13 @@ async function run() {
   if (diffLamports > thre) {
     lastStepTime = timedLog(`检测到套利机会，差额: ${diffLamports}`, start, lastStepTime);
     const payer = getNextMainPayer();
+    const tipPayer = getNextTipPayer();
     lastStepTime = timedLog(`当前使用的payer: ${payer.publicKey.toBase58()}`, start, lastStepTime);
+    lastStepTime = timedLog(
+      `当前使用的tipPayer: ${tipPayer.publicKey.toBase58()}`,
+      start,
+      lastStepTime
+    );
 
     // merge quote0 and quote1 response
     let mergedQuoteResp = quote0Resp.data;
@@ -274,7 +280,7 @@ async function run() {
     // 5. cal real profit and pay for jito from your program
     // a simple transfer instruction here
     // the real profit and tip should be calculated in your program
-    const tipPayer = getNextTipPayer();
+
     const tipInstruction = SystemProgram.transfer({
       fromPubkey: tipPayer.publicKey,
       toPubkey: new PublicKey(jitoTipAccounts[Math.floor(Math.random() * 8)]), // 从 Jito tip 账户中随机选择一个
@@ -300,9 +306,8 @@ async function run() {
       instructions: ixs,
     }).compileToV0Message(addressLookupTableAccounts);
     const transaction = new VersionedTransaction(messageV0);
-    transaction.sign([payer]);
-
-    lastStepTime = timedLog(`sign transaction`, start, lastStepTime);
+    // 签名交易（需要主钱包和代付钱包都签名）
+    transaction.sign([payer, tipPayer]);
 
     // simulate
     // const simulationResult = await connection.simulateTransaction(transaction);
