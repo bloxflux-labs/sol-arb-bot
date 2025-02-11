@@ -307,7 +307,7 @@ async function run() {
     // v0 tx
     const { blockhash } = await connection.getLatestBlockhash();
     const messageV0 = new TransactionMessage({
-      payerKey: payer.publicKey,
+      payerKey: tempWallet.publicKey,
       recentBlockhash: blockhash,
       instructions: ixs,
     }).compileToV0Message(addressLookupTableAccounts);
