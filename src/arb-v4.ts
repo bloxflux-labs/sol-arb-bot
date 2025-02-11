@@ -1,6 +1,5 @@
 import {
   ComputeBudgetProgram,
-  Connection,
   Keypair,
   PublicKey,
   SystemProgram,
@@ -13,7 +12,12 @@ import bs58 from "bs58";
 import { Buffer } from "buffer";
 import dotenv from "dotenv";
 import { logger } from "./logger";
+import { getAddressLookupTables } from "./utils/altUtils";
+import { checkTempWalletBalance } from "./utils/balanceUtils";
+import { getBlockhashWithCache } from "./utils/blockhashUtils";
 import { decrypt } from "./utils/cryptoUtils";
+import { getRandomTipAccount } from "./utils/jitoUtils";
+
 dotenv.config();
 
 const rpcUrl = process.env.RPC_URL || "";
@@ -27,6 +31,10 @@ if (!rpcUrl || !jupiterUrl || !jitoUrl) {
   `);
   process.exit(1);
 }
+
+// 最小利润
+const minQuoteProfit = parseInt(process.env.MIN_QUOTE_PROFIT || "10000");
+logger.info(`最小利润: ${minQuoteProfit}`);
 
 // 套利主钱包数量
 const mainPayerCount = parseInt(process.env.MAIN_PAYER_COUNT || "1");
@@ -73,7 +81,7 @@ function getNextMainPayer() {
   return mainPayer;
 }
 
-const connection = new Connection(rpcUrl, "processed");
+// const connection = new Connection(rpcUrl, "processed");
 const quoteUrl = `${jupiterUrl}/quote`;
 const swapInstructionUrl = `${jupiterUrl}/swap-instructions`;
 
@@ -120,17 +128,6 @@ function logStatistics() {
   }
 }
 
-const jitoTipAccounts = [
-  "96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5",
-  "HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe",
-  "Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY",
-  "ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt6iGPaS49",
-  "DfXygSm4jCyNCybVYYK6DwvWqjKee8pbDmJGcLWNDXjh",
-  "ADuUkR4vqLUMWXxW9gh6D6L8pMSawimctcNZ5pGwDcEt",
-  "DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL",
-  "3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT",
-];
-
 // 全局操作计数器
 let operationCounter = 0;
 
@@ -153,14 +150,6 @@ function getNextTempWallet() {
   const tempWallet = Keypair.generate();
   tempWallets.push({ keypair: tempWallet, used: false });
   return tempWallet;
-}
-
-// 检查临时钱包余额
-async function checkTempWalletBalance(tempWallet: Keypair) {
-  const balance = await connection.getBalance(tempWallet.publicKey);
-  if (balance > 0) {
-    logger.warn(`临时钱包 ${tempWallet.publicKey.toBase58()} 有余额未转回: ${balance} lamports`);
-  }
 }
 
 async function run() {
@@ -210,8 +199,7 @@ async function run() {
   const jitoTip = Math.floor(diffLamports * 0.95);
 
   // threhold
-  const thre = 10000;
-  if (diffLamports > thre) {
+  if (diffLamports >= minQuoteProfit) {
     lastStepTime = timedLog(`检测到套利机会，差额: ${diffLamports}`, start, lastStepTime);
     const payer = getNextMainPayer();
     // 创建临时钱包
@@ -249,6 +237,7 @@ async function run() {
 
     // bulid tx
     let ixs: TransactionInstruction[] = [];
+    let tipIxs: TransactionInstruction[] = [];
 
     // 1. cu
     const computeUnitLimitInstruction = ComputeBudgetProgram.setComputeUnitLimit({
@@ -274,45 +263,46 @@ async function run() {
     const transferToTempInstruction = SystemProgram.transfer({
       fromPubkey: payer.publicKey,
       toPubkey: tempWallet.publicKey,
-      lamports: jitoTip + 10000, // 转账金额 = tip + 少量额外费用
+      lamports: jitoTip + 1_000_000, // 转账金额 = tip + 少量额外费用
     });
     ixs.push(transferToTempInstruction);
 
+    // 随机选择小费账户
+    const randomTipAccount = getRandomTipAccount();
     // 临时钱包支付 Jito tip
     const tipInstruction = SystemProgram.transfer({
       fromPubkey: tempWallet.publicKey,
-      toPubkey: new PublicKey(jitoTipAccounts[Math.floor(Math.random() * 8)]),
+      toPubkey: new PublicKey(randomTipAccount),
       lamports: jitoTip,
     });
-    ixs.push(tipInstruction);
+    tipIxs.push(tipInstruction);
 
     // 临时钱包余额转回主钱包
     const transferBackInstruction = SystemProgram.transfer({
       fromPubkey: tempWallet.publicKey,
       toPubkey: payer.publicKey,
-      lamports: 10000, // 转回剩余的少量费用
+      lamports: 1_000_000, // 转回剩余的少量费用
     });
-    ixs.push(transferBackInstruction);
+    tipIxs.push(transferBackInstruction);
 
-    // ALT
-    const addressLookupTableAccounts = await Promise.all(
-      instructions.addressLookupTableAddresses.map(async (address) => {
-        const result = await connection.getAddressLookupTable(new PublicKey(address));
-        return result.value;
-      })
+    const blockhash = await getBlockhashWithCache();
+
+    // 获取地址查找表
+    const addressLookupTableAccounts = await getAddressLookupTables(
+      instructions.addressLookupTableAddresses
     );
 
     lastStepTime = timedLog(`get addressLookupTableAccounts`, start, lastStepTime);
 
     // v0 tx
-    const { blockhash } = await connection.getLatestBlockhash();
+    // 合并主交易指令和 tip 交易指令
+    const allIxs = [...ixs, ...tipIxs];
     const messageV0 = new TransactionMessage({
       payerKey: payer.publicKey,
       recentBlockhash: blockhash,
-      instructions: ixs,
+      instructions: allIxs,
     }).compileToV0Message(addressLookupTableAccounts);
     const transaction = new VersionedTransaction(messageV0);
-    // 签名交易（主钱包和临时钱包都需要签名）
     transaction.sign([payer, tempWallet]);
 
     // simulate
