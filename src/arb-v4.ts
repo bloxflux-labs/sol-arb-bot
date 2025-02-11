@@ -176,6 +176,24 @@ function timedLog(message: string, startTime: number, lastStepTime?: number) {
   return Date.now(); // 返回当前时间作为下一步的lastStepTime
 }
 
+// 记录临时钱包
+const tempWallets: { keypair: Keypair; used: boolean }[] = [];
+
+// 获取下一个临时钱包
+function getNextTempWallet() {
+  const tempWallet = Keypair.generate();
+  tempWallets.push({ keypair: tempWallet, used: false });
+  return tempWallet;
+}
+
+// 检查临时钱包余额
+async function checkTempWalletBalance(tempWallet: Keypair) {
+  const balance = await connection.getBalance(tempWallet.publicKey);
+  if (balance > 0) {
+    logger.warn(`临时钱包 ${tempWallet.publicKey.toBase58()} 有余额未转回: ${balance} lamports`);
+  }
+}
+
 async function run() {
   const start = Date.now();
   const currentOperationId = operationCounter++;
@@ -229,11 +247,11 @@ async function run() {
     const payer = getNextMainPayer();
     // const tipPayer = getNextTipPayer();
     // 创建临时钱包
-    const tipPayer = Keypair.generate();
+    const tempWallet = getNextTempWallet();
 
     lastStepTime = timedLog(`当前使用的payer: ${payer.publicKey.toBase58()}`, start, lastStepTime);
     lastStepTime = timedLog(
-      `当前使用的tipPayer: ${tipPayer.publicKey.toBase58()}`,
+      `当前使用的tempWallet: ${tempWallet.publicKey.toBase58()}`,
       start,
       lastStepTime
     );
@@ -287,14 +305,14 @@ async function run() {
     // 主钱包向临时钱包转账
     const transferToTempInstruction = SystemProgram.transfer({
       fromPubkey: payer.publicKey,
-      toPubkey: tipPayer.publicKey,
+      toPubkey: tempWallet.publicKey,
       lamports: jitoTip + 10000, // 转账金额 = tip + 少量额外费用
     });
     ixs.push(transferToTempInstruction);
 
     // 临时钱包支付 Jito tip
     const tipInstruction = SystemProgram.transfer({
-      fromPubkey: tipPayer.publicKey,
+      fromPubkey: tempWallet.publicKey,
       toPubkey: new PublicKey(jitoTipAccounts[Math.floor(Math.random() * 8)]),
       lamports: jitoTip,
     });
@@ -302,7 +320,7 @@ async function run() {
 
     // 临时钱包余额转回主钱包
     const transferBackInstruction = SystemProgram.transfer({
-      fromPubkey: tipPayer.publicKey,
+      fromPubkey: tempWallet.publicKey,
       toPubkey: payer.publicKey,
       lamports: 10000, // 转回剩余的少量费用
     });
@@ -326,8 +344,8 @@ async function run() {
       instructions: ixs,
     }).compileToV0Message(addressLookupTableAccounts);
     const transaction = new VersionedTransaction(messageV0);
-    // 签名交易（需要主钱包和代付钱包都签名）
-    transaction.sign([payer, tipPayer]);
+    // 签名交易（主钱包和临时钱包都需要签名）
+    transaction.sign([payer, tempWallet]);
 
     // simulate
     // const simulationResult = await connection.simulateTransaction(transaction);
@@ -361,6 +379,8 @@ async function run() {
         // lastStepTime = timedLog(`slot: ${mergedQuoteResp.contextSlot}`, start, lastStepTime);
       } else {
         lastStepTime = timedLog(`请求失败，状态码: ${bundle_resp.status}`, start, lastStepTime);
+        // 检查临时钱包余额
+        await checkTempWalletBalance(tempWallet);
       }
     } catch (error: any) {
       const duration = Date.now() - start;
@@ -369,6 +389,8 @@ async function run() {
         // logger.error(`429: 请求过于频繁, 耗时: ${duration}ms`);
       } else {
         lastStepTime = timedLog(`请求失败，错误: ${error.message}`, start, lastStepTime);
+        // 检查临时钱包余额
+        await checkTempWalletBalance(tempWallet);
       }
     }
   }
