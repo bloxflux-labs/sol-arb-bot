@@ -313,7 +313,7 @@ async function run() {
     }).compileToV0Message(addressLookupTableAccounts);
     const transaction = new VersionedTransaction(messageV0);
     // 签名交易（主钱包和临时钱包都需要签名）
-    transaction.sign([payer, tempWallet]);
+    transaction.sign([tempWallet, payer]);
 
     // simulate
     // const simulationResult = await connection.simulateTransaction(transaction);
