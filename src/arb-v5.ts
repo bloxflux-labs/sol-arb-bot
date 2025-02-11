@@ -14,6 +14,8 @@ import { Buffer } from "buffer";
 import dotenv from "dotenv";
 import { logger } from "./logger";
 import { decrypt } from "./utils/cryptoUtils";
+import { getRandomTipAccount } from "./utils/jitoUtils";
+
 dotenv.config();
 
 const rpcUrl = process.env.RPC_URL || "";
@@ -119,17 +121,6 @@ function logStatistics() {
     lastLogTime = now;
   }
 }
-
-const jitoTipAccounts = [
-  "96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5",
-  "HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe",
-  "Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY",
-  "ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt6iGPaS49",
-  "DfXygSm4jCyNCybVYYK6DwvWqjKee8pbDmJGcLWNDXjh",
-  "ADuUkR4vqLUMWXxW9gh6D6L8pMSawimctcNZ5pGwDcEt",
-  "DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL",
-  "3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT",
-];
 
 // 全局操作计数器
 let operationCounter = 0;
@@ -278,21 +269,19 @@ async function run() {
     });
     ixs.push(transferToTempInstruction);
 
-    // 临时钱包支付 Jito tip
-    const tipInstruction = SystemProgram.transfer({
-      fromPubkey: tempWallet.publicKey,
-      toPubkey: new PublicKey(jitoTipAccounts[Math.floor(Math.random() * 8)]),
-      lamports: jitoTip,
-    });
-    ixs.push(tipInstruction);
+    // 随机选择小费账户
+    const randomTipAccount = getRandomTipAccount();
 
-    // 临时钱包余额转回主钱包
-    const transferBackInstruction = SystemProgram.transfer({
-      fromPubkey: tempWallet.publicKey,
-      toPubkey: payer.publicKey,
-      lamports: 10000, // 转回剩余的少量费用
-    });
-    ixs.push(transferBackInstruction);
+    // tip 交易指令
+    const tipIxs: TransactionInstruction[] = [
+      SystemProgram.transfer({
+        fromPubkey: tempWallet.publicKey,
+        toPubkey: new PublicKey(randomTipAccount),
+        lamports: jitoTip,
+      }),
+    ];
+
+    const { blockhash } = await connection.getLatestBlockhash();
 
     // ALT
     const addressLookupTableAccounts = await Promise.all(
@@ -302,34 +291,56 @@ async function run() {
       })
     );
 
+    // 构建 tip 交易
+    const tipMessageV0 = new TransactionMessage({
+      payerKey: tempWallet.publicKey,
+      recentBlockhash: blockhash,
+      instructions: tipIxs,
+    }).compileToV0Message(addressLookupTableAccounts);
+    const tipTransaction = new VersionedTransaction(tipMessageV0);
+    tipTransaction.sign([tempWallet]); // 临时钱包签名
+
+    // 临时钱包余额转回主钱包
+    const transferBackInstruction = SystemProgram.transfer({
+      fromPubkey: tempWallet.publicKey,
+      toPubkey: payer.publicKey,
+      lamports: 10000, // 转回剩余的少量费用
+    });
+    ixs.push(transferBackInstruction);
+
     lastStepTime = timedLog(`get addressLookupTableAccounts`, start, lastStepTime);
 
-    // v0 tx
-    const { blockhash } = await connection.getLatestBlockhash();
-    const messageV0 = new TransactionMessage({
+    // 构建主交易
+    const mainMessageV0 = new TransactionMessage({
       payerKey: payer.publicKey,
       recentBlockhash: blockhash,
       instructions: ixs,
     }).compileToV0Message(addressLookupTableAccounts);
-    const transaction = new VersionedTransaction(messageV0);
-    // 签名交易（主钱包和临时钱包都需要签名）
-    transaction.sign([payer, tempWallet]);
+    const mainTransaction = new VersionedTransaction(mainMessageV0);
+    mainTransaction.sign([payer]); // 主钱包签名
 
     // simulate
     // const simulationResult = await connection.simulateTransaction(transaction);
     // console.log(JSON.stringify(simulationResult));
 
-    // send bundle
-    const serializedTransaction = transaction.serialize();
-    const base58Transaction = bs58.encode(serializedTransaction);
+    // 序列化交易
+    const serializedMainTransaction = mainTransaction.serialize();
+    const serializedTipTransaction = tipTransaction.serialize();
 
+    // 构建 Bundle
     const bundle = {
       jsonrpc: "2.0",
       id: 1,
       method: "sendBundle",
-      params: [[base58Transaction]],
+      params: [
+        [
+          bs58.encode(serializedMainTransaction), // 主交易
+          bs58.encode(serializedTipTransaction), // tip 交易
+        ],
+      ],
     };
 
+    // 发送 Bundle
     try {
       totalRequestCount++; // 总请求计数
       // lastStepTime = timedLog(`发送交易到Jito`, start, lastStepTime);

@@ -307,13 +307,13 @@ async function run() {
     // v0 tx
     const { blockhash } = await connection.getLatestBlockhash();
     const messageV0 = new TransactionMessage({
-      payerKey: tempWallet.publicKey,
+      payerKey: payer.publicKey,
       recentBlockhash: blockhash,
       instructions: ixs,
     }).compileToV0Message(addressLookupTableAccounts);
     const transaction = new VersionedTransaction(messageV0);
     // 签名交易（主钱包和临时钱包都需要签名）
-    transaction.sign([tempWallet, payer]);
+    transaction.sign([payer, tempWallet]);
 
     // simulate
     // const simulationResult = await connection.simulateTransaction(transaction);
