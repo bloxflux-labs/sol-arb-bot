@@ -13,6 +13,7 @@ import bs58 from "bs58";
 import { Buffer } from "buffer";
 import dotenv from "dotenv";
 import { logger } from "./logger";
+import { getAddressLookupTables } from "./utils/altUtils";
 import { decrypt } from "./utils/cryptoUtils";
 import { getRandomTipAccount } from "./utils/jitoUtils";
 
@@ -314,11 +315,16 @@ async function run() {
     const { blockhash } = await connection.getLatestBlockhash();
 
     // ALT
-    const addressLookupTableAccounts = await Promise.all(
-      instructions.addressLookupTableAddresses.map(async (address) => {
-        const result = await connection.getAddressLookupTable(new PublicKey(address));
-        return result.value;
-      })
+    // const addressLookupTableAccounts = await Promise.all(
+    //   instructions.addressLookupTableAddresses.map(async (address) => {
+    //     const result = await connection.getAddressLookupTable(new PublicKey(address));
+    //     return result.value;
+    //   })
+    // );
+
+    // 获取地址查找表
+    const addressLookupTableAccounts = await getAddressLookupTables(
+      instructions.addressLookupTableAddresses
     );
 
     // 构建 tip 交易
