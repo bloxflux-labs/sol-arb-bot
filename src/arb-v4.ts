@@ -298,7 +298,7 @@ async function run() {
     // 合并主交易指令和 tip 交易指令
     const allIxs = [...ixs, ...tipIxs];
     const messageV0 = new TransactionMessage({
-      payerKey: payer.publicKey,
+      payerKey: tempWallet.publicKey,
       recentBlockhash: blockhash,
       instructions: allIxs,
     }).compileToV0Message(addressLookupTableAccounts);
@@ -347,6 +347,8 @@ async function run() {
         // logger.error(`429: 请求过于频繁, 耗时: ${duration}ms`);
       } else {
         lastStepTime = timedLog(`请求失败，错误: ${error.message}`, start, lastStepTime);
+        logger.error(`请求失败，状态码: ${error.response.status}`);
+        logger.error(`错误信息: ${JSON.stringify(error.response.data)}`);
         // 检查临时钱包余额
         await checkTempWalletBalance(tempWallet);
       }
